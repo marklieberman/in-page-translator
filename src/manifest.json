@@ -1,0 +1,49 @@
+{
+
+  "manifest_version": 2,
+  "name": "Translator",
+  "version": "1.0.0",
+
+  "applications": {
+    "gecko": {
+      "id": "translator@liebs.ca",
+      "strict_min_version": "88.0"
+    }
+  },
+
+  "description": "In-page translator for Firefox",
+
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "tabs",
+    "activeTab",
+    "<all_urls>"
+  ],
+
+  "options_ui": {
+    "open_in_tab": true,
+    "browser_style": false,
+    "page": "options/options.html"
+  },
+
+  "browser_action": {
+    "default_title": "Translator",
+    "default_icon": "icons/translate-dark.svg",
+    "theme_icons": [
+      {
+        "light": "icons/translate-light.svg",
+        "dark": "icons/translate-dark.svg",
+        "size": 32
+      }
+    ]
+  },
+
+  "background": {
+    "scripts": [
+      "lib/he.js",
+      "background.js"
+    ]
+  }
+
+}
