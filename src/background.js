@@ -256,11 +256,6 @@ async function enableTranslationInTab (tabId) {
     file: '/translate.js'
   });
 
-  // Enable translation in the tab.
-  browser.tabs.sendMessage(tabId, {
-    topic: 'startTranslate'
-  });
-
   // Update the browser action icon.
   browser.browserAction.setIcon({
     tabId,

@@ -11,9 +11,6 @@
 
   browser.runtime.onMessage.addListener((message, sender) => {
     switch (message.topic) {
-      case 'startTranslate':
-        startPageTranslation();
-        break;
       case 'stopTranslate':
         stopPageTranslation();
         break;
@@ -163,7 +160,7 @@
 
     // Remove all digits and punctuation and if anything remains, translate it.
     // Match anything not: whitespace, digits, latin, or punctuation.
-    if ((input.length < 5) && input.match(/[^\s\d\w\p{P}]+/gu)) {
+    if (input.match(/[^\s\d\w\p{P}]+/gu)) {
       return true;
     }
     
@@ -178,7 +175,10 @@
     let node, nodes = [], treeWalker = document.createTreeWalker(startingElement, NodeFilter.SHOW_TEXT, null);  
     while(node = treeWalker.nextNode()) {
       // Check if the text content should be translated.
-      if (!state.alreadyTranslated.has(node) && await shouldTranslate(node.data)) {
+      if (!state.alreadyTranslated.has(node) 
+        && node.parentNode.tagName !== 'SCRIPT'
+        && node.parentNode.tagName !== 'NOSCRIPT'
+        && await shouldTranslate(node.data)) {
         nodes.push(node);
       }
     }  
@@ -238,6 +238,11 @@
     // Disconnect the mutation oberver.
     state.observer.disconnect();
   }
+
+  // -------------------------------------------------------------------------------------------------------------------
+  // Ready
+
+  startPageTranslation();
 
 })();
 
