@@ -1,13 +1,14 @@
 'use strict';
 
 var gulp   = require('gulp'),
-    jshint = require('gulp-jshint'),
+    eslint = require('gulp-eslint'),
     sass   = require('gulp-sass'),
     zip    = require('gulp-zip');
 
 var sources = {
   js: [
-    'src/**/*.js'
+    'src/**/*.js',
+    '!src/lib/**/*.js'
   ],
   sass: [
     'src/common/bootstrap.scss'
@@ -39,8 +40,9 @@ function sassTask () {
 
 function lintTask () {
   return gulp.src(sources.js)
-    .pipe(jshint())
-    .pipe(jshint.reporter('jshint-stylish'));
+    .pipe(eslint())
+    .pipe(eslint.format())
+    .pipe(eslint.failAfterError());
 }
 
 function distTask () {
@@ -56,4 +58,4 @@ exports.lint = lintTask;
 
 exports.watch = gulp.series(sassTask, watchFiles);
 exports.default = gulp.series(lintTask, watchFiles);
-exports.dist = gulp.series(sassTask, distTask);
+exports.dist = gulp.series(lintTask, sassTask, distTask);

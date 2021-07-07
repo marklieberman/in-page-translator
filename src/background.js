@@ -1,3 +1,6 @@
+/* global he */
+'use strict';
+
 const state = {  
   enabledTabs: new Set(),   // Manually enabled in these tabs.
   disabledTabs: new Set(),  // Manually disabled in these tabs.
@@ -73,11 +76,12 @@ browser.storage.onChanged.addListener((changes, area) => {
 /**
  * Listen for messages from the content scripts.
  */
-browser.runtime.onMessage.addListener((message, sender) => {
+browser.runtime.onMessage.addListener((message) => {
   switch (message.topic) {
-  case 'translate':    
-    let target = message.target || settings.target;
-    return translateChunks(target, message.q);
+    case 'translate': {
+      let target = message.target || settings.target;
+      return translateChunks(target, message.q);
+    }
   }
 });
 
@@ -85,7 +89,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
  * Invoked when the browser action is clicked.
  * Enable or disable translation in a tab.
  */
-browser.browserAction.onClicked.addListener((tab, data) => {
+browser.browserAction.onClicked.addListener((tab) => {
   // The API key must be configured.
   if (!settings.apiKey) {
     browser.runtime.openOptionsPage();
@@ -117,7 +121,7 @@ browser.browserAction.onClicked.addListener((tab, data) => {
  * Invoked when a tab is removed.
  * Forget the enabled/disabled state of removed tabs.
  */
-browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
+browser.tabs.onRemoved.addListener((tabId) => {
   state.enabledTabs.delete(tabId);
   state.disabledTabs.delete(tabId);
   state.automaticTabs.delete(tabId);
@@ -228,7 +232,7 @@ function updateBrowserActionBadgeText () {
   // Indicate how many characters have been used.
   if ((settings.disableAfter > 0) && (characters > settings.disableAfter)) {
     browser.browserAction.setBadgeText({
-      text: `OFF`
+      text: 'OFF'
     });
   } else 
   if (characters >= 1000000) {
@@ -342,7 +346,7 @@ function chunkify (array, size = 100) {
     let chunk = chunks[chunks.length - 1];
     if (chunk.length >= size) {
       chunk = [ textNode ];
-      chunks.push(chunk)
+      chunks.push(chunk);
     } else {
       chunk.push(textNode);
     }

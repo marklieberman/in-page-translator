@@ -1,3 +1,5 @@
+'use strict';
+
 (async function () {
   // Multiple inclusion guard.
   if (window.$$injectedTranslator) {
@@ -9,7 +11,7 @@
   // -------------------------------------------------------------------------------------------------------------------
   // Message listeners
 
-  browser.runtime.onMessage.addListener((message, sender) => {
+  browser.runtime.onMessage.addListener((message) => {
     switch (message.topic) {
       case 'stopTranslate':
         stopPageTranslation();
@@ -160,7 +162,7 @@
 
     // Remove all digits and punctuation and if anything remains, translate it.
     // Match anything not: whitespace, digits, latin, or punctuation.
-    if (input.match(/[^\s\d\w\p{P}]+/gu)) {
+    if (input.match(new RegExp('[^\\s\\d\\w\\p{P}]+', 'gu'))) {
       return true;
     }
     
@@ -173,7 +175,7 @@
   async function getAllTextNodes (startingElement) {  
     // Find all TEXT nodes using a tree walker.
     let node, nodes = [], treeWalker = document.createTreeWalker(startingElement, NodeFilter.SHOW_TEXT, null);  
-    while(node = treeWalker.nextNode()) {
+    while((node = treeWalker.nextNode())) {
       // Check if the text content should be translated.
       if (!state.alreadyTranslated.has(node) 
         && node.parentNode.tagName !== 'SCRIPT'
@@ -213,7 +215,7 @@
     if (!state.observer) {
       // Schedule a translation in the near future each time the DOM is mutated.
       // This functions as an accumulator when multiple mutations happen rapidly.
-      state.observer = new MutationObserver((mutationsList, observer) => {
+      state.observer = new MutationObserver(() => {
         if (state.nextPass) {
           clearTimeout(state.nextPass);
         }
