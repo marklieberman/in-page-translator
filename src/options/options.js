@@ -1,87 +1,191 @@
 'use strict';
 
+const divToProviderMap = new WeakMap();
+const quotas = {};
+
 const el = {
   optionsForm: document.getElementById('options-form'),
-  inputApiKey: document.getElementById('api-key'),
+  divBackendList: document.getElementById('backend-list'),
+  templateAzureBackend: document.getElementById('azure-backend-template'),
+  templateGoogleBackend: document.getElementById('google-backend-template'),
+  buttonAddAzureProvider: document.getElementById('add-azure-backend'),
+  buttonAddGoogleProvider: document.getElementById('add-google-backend'),
   inputTarget: document.getElementById('target'),
   inputCacheSize: document.getElementById('cache-size'),
   inputDomains: document.getElementById('domains'),
-  inputWarnAfter: document.getElementById('warn-after'),
-  inputDisableAfter: document.getElementById('disable-after'),
-  buttonClearCache: document.getElementById('clear-cache'),
-  buttonResetCharacters: document.getElementById('reset-characters'),
-  cellStatisticsCharacters: document.getElementById('statistics-characters')
+  buttonFlushCache: document.getElementById('flush-cache')
 };
 
 // Restore the options from local stoage.
 browser.storage.local.get({
-  apiKey: '',
   target: 'en',
   domains: [],
   cacheSize: 1000,
-  warnAfter: 400000,
-  disableAfter: 480000,
-  statistics: {
-    characters: 0
-  }
+  providers: [],
+  quotas: {}
 }).then(results => {
-  // Setup
-  el.inputApiKey.value = results.apiKey;
   el.inputTarget.value = results.target;
   el.inputDomains.value = results.domains.join('\n');
   el.inputCacheSize.value = results.cacheSize;
-  el.inputWarnAfter.value = results.warnAfter;
-  el.inputDisableAfter.value = results.disableAfter;
-
-  // Statistics
-  el.cellStatisticsCharacters.innerText = results.statistics.characters;
+  Object.assign(quotas, results.quotas);
+  console.log(quotas);
+  if (results.providers.length) {
+    el.divBackendList.innerText = '';
+    results.providers.forEach(provider => createProvider(provider));
+  }
 });
 
 // Bind event handlers to the form.
+el.buttonAddAzureProvider.addEventListener('click', () => createProvider({
+  service: 'azure',
+  enabled: true,
+  apiKey: '',
+  color: 'RoyalBlue',
+  warnAfter: 1980000,
+  stopAfter: 1995000,
+  resetOn: 1,
+  quotaKey: `quota-azure-${new Date().getTime()}`
+}).scrollIntoView());
+el.buttonAddGoogleProvider.addEventListener('click', () => createProvider({
+  service: 'google',
+  enabled: true,
+  apiKey: '',
+  color: 'ForestGreen',
+  warnAfter: 480000,
+  stopAfter: 485000,
+  resetOn: 1,
+  quotaKey: `quota-google-${new Date().getTime()}`
+}).scrollIntoView());
 el.optionsForm.addEventListener('submit', saveOptions);
-el.buttonClearCache.addEventListener('click', clearCache);
-el.buttonResetCharacters.addEventListener('click', resetCharacters);
-
-// Clear the cache.
-async function clearCache () {
-  await browser.storage.local.set({
-    cacheData: []
+el.buttonFlushCache.addEventListener('click', async () => {
+  await browser.runtime.sendMessage({ 
+    topic: 'flushCache'
   });
 
-  alert('The cache has been cleared.');
+  alert('Flushed the cache.');
+});
+
+function createProvider (provider) {
+  // Select a template for this provider.
+  let templateElement = {
+    'azure': el.templateAzureBackend.content,
+    'google': el.templateGoogleBackend.content,
+  }[provider.service];
+
+  // Lookup quotas for this provider.
+  let quota = quotas[provider.quotaKey] || {
+    characters: 0
+  };  
+
+  let template = document.importNode(templateElement, true);
+  let tpl = {
+    divProvider: template.firstElementChild,
+    inputEnabled: template.querySelector('[name="enabled"]'),
+    inputApiKey: template.querySelector('[name="api-key"]'),
+    inputColor: template.querySelector('[name="color"]'),
+    inputWarnAfter: template.querySelector('[name="warn-after"]'),
+    inputStopAfter: template.querySelector('[name="stop-after"]'),
+    inputResetOn: template.querySelector('[name="reset-on"]'),
+    inputQuotaKey: template.querySelector('[name="quota-key"]'),
+    cellQuotaCharacters: template.querySelector('td.quota-characters'),
+    buttonMoveUp: template.querySelector('button.move-up'),
+    buttonMoveDown: template.querySelector('button.move-down'),
+    buttonDelete: template.querySelector('button.delete'),
+    buttonCacheReset: template.querySelector('button.cache-reset')
+  };
+  tpl.inputEnabled.checked = provider.enabled;
+  tpl.inputApiKey.value = provider.apiKey;
+  tpl.inputColor.value = provider.color || null;
+  tpl.inputWarnAfter.value = provider.warnAfter;
+  tpl.inputStopAfter.value = provider.stopAfter;
+  tpl.inputResetOn.value = provider.resetOn;
+  tpl.inputQuotaKey.value = provider.quotaKey;
+  tpl.cellQuotaCharacters.innerText = quota.characters;
+
+  // Bind event handlers to the provider form.
+  tpl.buttonMoveUp.addEventListener('click', () => moveUpProvider(tpl.divProvider));
+  tpl.buttonMoveDown.addEventListener('click', () => moveDownProvider(tpl.divProvider));
+  tpl.buttonDelete.addEventListener('click', () => deleteProvider(tpl.divProvider));
+  tpl.buttonCacheReset.addEventListener('click', () => quotaResetProvider(tpl, provider.quotaKey));
+
+  el.divBackendList.appendChild(template);
+  divToProviderMap.set(tpl.divProvider, () => ({
+    service: provider.service,
+    enabled: tpl.inputEnabled.checked,
+    apiKey: tpl.inputApiKey.value,
+    color: tpl.inputColor.value,
+    warnAfter: Number(tpl.inputWarnAfter.value),
+    stopAfter: Number(tpl.inputStopAfter.value),
+    resetOn: Number(tpl.inputResetOn.value),
+    quotaKey: tpl.inputQuotaKey.value
+  }));
+
+  return tpl.divProvider;
 }
 
-async function resetCharacters () {
-  let input = Number.parseInt(prompt('Set new value for translated characters?', '0'));
-  if (Number.isFinite(input)) {
-    await browser.storage.local.set({
-      statistics: {
-        month: new Date().getMonth(),
-        characters: input
-      }
-    });
+function moveUpProvider (element) {
+  if (element.previousElementSibling) {
+    element.parentNode.insertBefore(element, element.previousElementSibling);
+  }
+}
 
-    el.cellStatisticsCharacters.innerText = input;
+function moveDownProvider (element) {
+  if (element.nextElementSibling) {
+    element.parentNode.insertBefore(element.nextElementSibling, element);
+  }
+}
+
+function deleteProvider (element) {
+  element.parentNode.removeChild(element);
+}
+
+async function quotaResetProvider (tpl, quotaKey) {  
+  let newQuota = Number.parseInt(prompt('Reset character quota to this amount:', 0));
+  if (Number.isFinite(newQuota) && (newQuota >= 0)) {
+    let data = await browser.storage.local.get({ quotas: {} });
+    data.quotas[quotaKey] = {
+      month: new Date().getMonth(),
+      characters: newQuota
+    };
+    await browser.storage.local.set(data);
+    tpl.cellQuotaCharacters.innerText = newQuota;
   }
 }
 
 // Save the options to local storage.
-function saveOptions (event) {
-  if (el.optionsForm.checkValidity() === false) {
-    event.preventDefault();
-    event.stopPropagation();
+async function saveOptions (event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (!el.optionsForm.checkValidity()) {
     return;
   }
 
-  return browser.storage.local.set({
-    apiKey: el.inputApiKey.value,
+  let providers = [].slice.call(el.divBackendList.children)
+    .filter(element => element.tagName === 'DIV')
+    .map(divProvider => divToProviderMap.get(divProvider)());
+
+  // Delete quotas for any providers that no longer exist.
+  let validQuotaKeys = new Set();
+  providers.forEach(provider => validQuotaKeys.add(provider.quotaKey));
+  let results = await browser.storage.local.get({ quotas: {} });
+  Object.assign(quotas, results.quotas);
+  Object.keys(quotas).forEach(quotaKey => {
+    if (!validQuotaKeys.has(quotaKey)) {
+      delete quotas[quotaKey];
+    }
+  });
+
+  await browser.storage.local.set({
     target: el.inputTarget.value,
     domains: el.inputDomains.value
       .split('\n')
       .map(domain => domain.trim())
       .filter(domain => domain),
     cacheSize: Number(el.inputCacheSize.value),
-    warnAfter: Number(el.inputWarnAfter.value),
-    disableAfter: Number(el.inputDisableAfter.value),
+    providers,
+    quotas
   });
+
+  alert('Settings have been saved');
 }

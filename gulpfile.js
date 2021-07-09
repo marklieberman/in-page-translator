@@ -11,7 +11,8 @@ var sources = {
     '!src/lib/**/*.js'
   ],
   sass: [
-    'src/common/bootstrap.scss'
+    'src/common/bootstrap.scss',
+    'src/options/options.scss',
   ],
   watch: {
     sass: [

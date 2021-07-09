@@ -22,6 +22,8 @@
   // -------------------------------------------------------------------------------------------------------------------
   // Page translation
 
+  console.log('injected!!!!');
+
   const state = {
     alreadyTranslated: new WeakSet()
   };
@@ -130,14 +132,18 @@
       items = deduplicateItems(items);
 
       // Translate strings for all items.
-      let outputs = await browser.runtime.sendMessage({
+      let translation = await browser.runtime.sendMessage({
         topic: 'translate',
         target: null,
         q: items.map(item => item.input)
       });
 
-      // Invoke the replacer for all items.
-      items.forEach((item, i) => item.replacer(item.item, outputs[i], item));
+      if (!translation.error) {
+        // Invoke the replacer for all items.
+        items.forEach((item, i) => item.replacer(item.item,translation.outputs[i], item));
+      } else {
+        console.log('translation failed');
+      }      
     }
   }
 

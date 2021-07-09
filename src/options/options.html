@@ -10,6 +10,8 @@
           crossorigin="anonymous">
     <link rel="stylesheet"
           href="/common/bootstrap.css">
+    <link rel="stylesheet"
+          href="options.css">
   </head>
   <body>
     <form class="was-validated" id="options-form" novalidate>
@@ -18,94 +20,315 @@
 
         <div class="row">
           <div class="col-md-12">
-            <h5>Setup</h5>
-            <!-- api key -->
-            <div class="form-group">
-              <label for="api-key">Google Cloud API Key</label>
-              <input class="form-control" type="text" id="api-key"
-                     required></input>
-              <small class="form-text text-muted">
-                A Google Cloud API key with access to the Translate API.
-              </small>
-              <small class="invalid-feedback">
-                This is required or the addon cannot function.
-              </small>
-            </div>
-            <!-- target -->
-            <div class="form-group">
-              <label for="target">Target Language</label>
-              <input class="form-control" type="text" id="target"
-                     required></input>
-              <small class="form-text text-muted">
-                A <a target="_blank" href="https://cloud.google.com/translate/docs/languages">language code</a> supported by Google translate.
-              </small>
-              <small class="invalid-feedback">
-                This is required or the addon cannot function.
-              </small>
-            </div>
-            <!-- domains -->
-            <div class="form-group">
-              <label for="cache-size">Automatic Domains</label>
-              <textarea class="form-control" type="text" id="domains"></textarea>
-              <small class="form-text text-muted">
-                Automatically enable translation when visiting these domains.
-                Enter one domain on each line.
-              </small>
-            </div>
-            <!-- cache size -->
-            <div class="form-group">
-              <label for="cache-size">Translation Cache Size</label>
-              <input class="form-control" type="number" id="cache-size"
-                     step="1" min="1" max="100000"></input>
-              <small class="form-text text-muted">
-                The maximum number of cached translations to persist.
-              </small>
+            <div class="form-row">
+              <!-- target -->
+              <div class="form-group col-md-12">
+                <label for="target">Target Language</label>
+                <input class="form-control" type="text" id="target"
+                      required></input>
+                <small class="form-text text-muted">
+                  The target language code for translation.
+                </small>
+                <small class="invalid-feedback">
+                  This is required or the addon cannot function.
+                </small>
+              </div>
             </div>
 
-            <h5>Statistics</h5>
-            <!-- statistics -->
-            <div class="form-group">              
-              <table>
-                <tr>
-                  <th>Characters Translated</th>
-                  <td id="statistics-characters">N/A</td>
-                </tr>
-              </table>
+            <div class="form-row">
+              <!-- domains -->
+              <div class="form-group col-md-12">
+                <label for="cache-size">Automatic Domains</label>
+                <textarea class="form-control" type="text" id="domains"></textarea>
+                <small class="form-text text-muted">
+                  Automatically enable translation when visiting these domains.
+                  Enter one domain on each line.
+                </small>
+              </div>
             </div>
-            <!-- warn after -->
-            <div class="form-group">
-              <label for="warn-after">Warn After</label>
-              <input class="form-control" type="number" id="warn-after"
-                     step="1" min="0"></input>
-              <small class="form-text text-muted">
-                Browser icon badge turns red after this many characters.
-              </small>
+
+            <div class="form-row">
+              <!-- cache size -->
+              <div class="form-group col-md-12">
+                <label for="cache-size">Translation Cache Size</label>
+                <div class="input-group">
+                  <input class="form-control" type="number" id="cache-size"
+                        step="1" min="1" max="100000"></input>
+                  <div class="input-group-append">
+                    <span class="input-group-text">entries</span>
+                  </div>
+                </div>
+                <small class="form-text text-muted">
+                  The maximum number of cached translations to persist.
+                </small>
+              </div>
             </div>
-            <!-- disable after -->
-            <div class="form-group">
-              <label for="disable-after">Disable After</label>
-              <input class="form-control" type="number" id="disable-after"
-                     step="1" min="0"></input>
-              <small class="form-text text-muted">
-                Translation is disabled after this many characters.
-              </small>
+
+            <!-- backend list -->            
+            <div class="form-row">              
+              <div class="form-group col-md-12">              
+                <hr>
+                <h5>Translation Providers</h5>
+                <p>
+                  Translation will be provided by the first enabled provider with sufficient quota. 
+                  Providers make a best effort attempt to keep track of the number of characters translated.
+                  You can configure a provider to disable itself while the translated character count remains 
+                  in the free-usage tier to avoid incurring charges.
+                  
+                  <strong>This addon provides no guarantees. Proceed with caution.</strong>
+                </p>
+                <button class="btn btn-secondary" type="button" id="add-azure-backend">
+                  Add Azure Provider
+                </button>
+                <button class="btn btn-secondary" type="button" id="add-google-backend">
+                  Add Google Provider
+                </button>
+              </div>
+            </div>
+            <div id="backend-list">
+              <span class="empty">No translation providers.</span>
             </div>
 
             <!-- controls -->
-            <div class="form-group">              
-              <button class="btn btn-primary" type="submit">
-                Save
-              </button>
-              <button class="btn btn-secondary" type="button" id="clear-cache">
-                Clear Cache
-              </button>
-              <button class="btn btn-secondary" type="button" id="reset-characters">
-                Reset Characters
-              </button>
-            </div>
-          </div><!-- /col -->
-        </div><!-- /row -->
+            <div class="form-row">
+              <div class="form-group col-md-12">
+                <hr>
+                <button class="btn btn-primary" type="submit">
+                  Save
+                </button>
 
+                <button class="btn btn-secondary" type="button" id="flush-cache">
+                  Flush Cache
+                </button>
+              </div>
+            </div>
+
+            <template id="azure-backend-template">
+              <div class="azure-backend">                
+                <input type="hidden" name="quota-key"></input>
+                <div class="form-row">
+                  <div class="form-group col-md-3">
+                    <!-- enabled -->
+                    <div class="form-check">                      
+                      <label class="form-check-label">                        
+                        <input class="form-check-input" type="checkbox" name="enabled">
+                        Enable provider
+                      </label>
+                    </div>
+                  </div>
+                  <!-- actions -->
+                  <div class="form-group col-md-9 text-right">
+                    <button class="btn btn-sm btn-secondary move-up" type="button" title="Higher Priority">
+                      <i class="fas fa-arrow-up"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary move-down" type="button" title="Lower Priority">
+                      <i class="fas fa-arrow-down"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary delete" type="button" title="Delete">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary cache-reset" type="button" title="Reset Quota">
+                      <i class="fas fa-redo fa-flip-horizontal"></i>
+                    </button>
+                  </div>
+                </div>                
+                
+                <div class="form-row">                  
+                  <!-- api key -->
+                  <div class="form-group col-md-8">
+                    <label for="api-key">Azure Service Key</label>
+                    <input class="form-control" type="text" name="api-key" required></input>
+                    <small class="form-text text-muted">
+                      The key for the Translation service.
+                    </small>
+                    <small class="invalid-feedback">
+                      This is required.
+                    </small>
+                  </div>
+                  <!-- color -->
+                  <div class="form-group col-md-4">
+                    <label for="api-key">Indicator Color</label>
+                    <input class="form-control" type="text" name="color"></input>
+                    <small class="form-text text-muted">
+                      The addon button's badge text color becomes indicator color when this provider is used. 
+                      (Any CSS color value.)
+                    </small>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <!-- warn after -->
+                  <div class="form-group col-md-4">
+                    <label for="warn-after">Warn After</label>
+                    <div class="input-group">
+                      <input class="form-control" type="number" name="warn-after"
+                            step="1" min="0"></input>
+                      <div class="input-group-append">
+                        <span class="input-group-text">characters</span>
+                      </div>
+                    </div>
+                    <small class="form-text text-muted">
+                      The addon button's badge background color becomes indicator color.
+                    </small>
+                  </div>
+                  <!-- stop after -->
+                  <div class="form-group col-md-4">
+                    <label for="stop-after">Character Quota</label>
+                    <div class="input-group">
+                      <input class="form-control" type="number" name="stop-after"
+                            step="1" min="0"></input>
+                      <div class="input-group-append">
+                        <span class="input-group-text">characters</span>
+                      </div>
+                    </div>
+                    <small class="form-text text-muted">
+                      Provider cannot be used if submitted characters will exceed this amount.
+                    </small>
+                  </div>
+                  <!-- reset on -->
+                  <div class="form-group col-md-4">
+                    <label for="reset-on">Reset On</label>
+                    <div class="input-group">
+                      <div class="input-group-prepend">
+                        <span class="input-group-text">Day</span>
+                      </div>
+                      <input class="form-control" type="number" name="reset-on"
+                            step="1" min="0" max="31"></input>
+                      <div class="input-group-append">
+                        <span class="input-group-text">of each month</span>
+                      </div>
+                    </div>
+                    <small class="form-text text-muted">
+                      Characters translated is reset on this day of each month.
+                    </small>
+                  </div>
+                </div>
+                <!-- statistics -->
+                <div class="form-row">
+                  <div class="form-group col-md-12">
+                    <table>
+                      <tr>
+                        <th>Characters Translated:</th>
+                        <td class="quota-characters">0</td>
+                      </tr>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <template id="google-backend-template">
+              <div class="google-backend">                
+                <input type="hidden" name="quota-key"></input>
+                <div class="form-row">
+                  <div class="form-group col-md-3">
+                    <!-- enabled -->
+                    <div class="form-check">                      
+                      <label class="form-check-label">                        
+                        <input class="form-check-input" type="checkbox" name="enabled">
+                        Enable provider
+                      </label>
+                    </div>
+                  </div>
+                  <!-- actions -->
+                  <div class="form-group col-md-9 text-right">
+                    <button class="btn btn-sm btn-secondary move-up" type="button" title="Higher Priority">
+                      <i class="fas fa-arrow-up"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary move-down" type="button" title="Lower Priority">
+                      <i class="fas fa-arrow-down"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary delete" type="button" title="Delete">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary cache-reset" type="button" title="Reset Quota">
+                      <i class="fas fa-redo fa-flip-horizontal"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <!-- api key -->
+                  <div class="form-group col-md-8">
+                    <label for="api-key">Google Cloud Platform API Key</label>
+                    <input class="form-control" type="text" name="api-key" required></input>
+                    <small class="form-text text-muted">
+                      An API key with access to the Translate API.
+                    </small>
+                    <small class="invalid-feedback">
+                      This is required.
+                    </small>
+                  </div>
+                  <!-- color -->
+                  <div class="form-group col-md-4">
+                    <label for="api-key">Indicator Color</label>
+                    <input class="form-control" type="text" name="color"></input>
+                    <small class="form-text text-muted">                      
+                      The addon button's badge text color becomes indicator color when this provider is used. 
+                      (Any CSS color value.)
+                    </small>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <!-- warn after -->
+                  <div class="form-group col-md-4">
+                    <label for="warn-after">Warn After</label>
+                    <div class="input-group">
+                      <input class="form-control" type="number" name="warn-after"
+                            step="1" min="0"></input>
+                      <div class="input-group-append">
+                        <span class="input-group-text">characters</span>
+                      </div>
+                    </div>
+                    <small class="form-text text-muted">
+                      The addon button's badge background color becomes indicator color.
+                    </small>
+                  </div>
+                  <!-- stop after -->
+                  <div class="form-group col-md-4">
+                    <label for="stop-after">Character Quota</label>
+                    <div class="input-group">
+                      <input class="form-control" type="number" name="stop-after"
+                            step="1" min="0"></input>
+                      <div class="input-group-append">
+                        <span class="input-group-text">characters</span>
+                      </div>
+                    </div>
+                    <small class="form-text text-muted">
+                      Provider cannot be used if submitted characters will exceed this amount.
+                    </small>
+                  </div>
+                  <!-- reset on -->
+                  <div class="form-group col-md-4">
+                    <label for="reset-on">Reset On</label>
+                    <div class="input-group">
+                      <div class="input-group-prepend">
+                        <span class="input-group-text">Day</span>
+                      </div>
+                      <input class="form-control" type="number" name="reset-on"
+                            step="1" min="0" max="31"></input>
+                      <div class="input-group-append">
+                        <span class="input-group-text">of each month</span>
+                      </div>
+                    </div>
+                    <small class="form-text text-muted">
+                      Characters translated is reset on this day of each month.
+                    </small>
+                  </div>
+                </div>
+                <div class="form-row"></div>
+                <!-- statistics -->
+                <div class="form-row">
+                  <div class="form-group col-md-12">
+                    <table>
+                      <tr>
+                        <th>Characters Translated:</th>
+                        <td class="quota-characters">0</td>
+                      </tr>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
       </div>
     </form>
 
