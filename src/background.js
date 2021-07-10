@@ -328,7 +328,7 @@ async function updateBrowserActionBadge (recentProvider, lastError) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Translation engine
-// TODO Change to an LRU cache.
+
 const ERROR_NO_PROVIDERS = 'no_providers';
 const ERROR_CHARACTER_QUOTA_EXCEEDED = 'character_quota_exceeded';
 const ERROR_ALL_PROVIDERS_QUOTA_EXCEEDED = 'all_providers_quota_exceeded';
@@ -405,9 +405,17 @@ function throwIfExceedsQuota (provider, consumed) {
  * Lookup an entry in the cache.
  */
 function cacheGet (input, target) {
-  for (let i = 0; i < settings.cacheData.length; i++) {
-    let entry = settings.cacheData[i];
+  let cache = settings.cacheData;
+  for (let i = 0; i < cache.length; i++) {
+    let entry = cache[i];
     if ((entry.input === input) && (entry.target === target)) {
+      // Treating cache like LRU so move hit to top of the list.
+      cache.splice(i, 1);
+      cache.unshift(entry);
+
+      // Schedule a prune and persist pass in the near future.
+      schedulePersistPass();
+
       return entry.output;
     }
   }
@@ -424,14 +432,24 @@ function cacheSet (input, target, output) {
     target
   });
   
+  // Schedule a prune and persist pass in the near future.
+  schedulePersistPass();
+}
+
+/**
+ * Schedule a cache prune and persist pass in the neat future.
+ * Multiple calls will cancel any existing scheduled pass.
+ */
+function schedulePersistPass () {
   // Schedule a prune and persist in the near future.
   // The timeout is used as an accumulator when there are multiple updates in a short time.
   if (state.cacheHandle) {
     clearTimeout(state.cacheHandle);
   }
   state.cacheHandle = setTimeout(() => {
+    state.cacheHandle = null;
     cachePrune();
-    cachePersist();
+    cachePersist();    
   }, 5000);
 }
 
@@ -439,6 +457,7 @@ function cacheSet (input, target, output) {
  * Clean old entries from the cache.
  */
 function cachePrune () {
+  console.log('pruning cache', settings.cacheData.length);
   while (settings.cacheData.length > settings.cacheSize) {
     settings.cacheData.pop();
   }
@@ -448,6 +467,7 @@ function cachePrune () {
  * Persist the cache to local storage.
  */
 function cachePersist () {
+  console.log('persisting cache');
   return browser.storage.local.set({
     cacheData: settings.cacheData
   });
@@ -490,11 +510,9 @@ async function translate (target, q) {
           provider = providers[i];
           switch (provider.service) {
             case 'azure':
-              console.log('trying azure');
               translations = await azureTranslate(provider, target, misses);
               break;
             case 'google':
-              console.log('trying google');
               translations = await googleTranslate(provider, target, misses);
               break;
             default:
@@ -547,7 +565,7 @@ async function translate (target, q) {
 /**
  * Divide an array of misses into chunks with a maximum number of elements and total characters.
  */
- function chunkifyMisses (misses, maxElements, maxCharacters) {
+function chunkifyMisses (misses, maxElements, maxCharacters) {
   let chunks = [[]];
   chunks.$characters = 0;  
   chunks[0].$characters = 0;
