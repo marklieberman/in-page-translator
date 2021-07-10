@@ -41,6 +41,7 @@ el.buttonAddAzureProvider.addEventListener('click', () => createProvider({
   enabled: true,
   apiKey: '',
   color: 'RoyalBlue',
+  bgColor: 'LightGray',
   warnAfter: 1980000,
   stopAfter: 1995000,
   resetOn: 1,
@@ -51,6 +52,7 @@ el.buttonAddGoogleProvider.addEventListener('click', () => createProvider({
   enabled: true,
   apiKey: '',
   color: 'ForestGreen',
+  bgColor: 'LightGray',
   warnAfter: 480000,
   stopAfter: 485000,
   resetOn: 1,
@@ -83,6 +85,9 @@ function createProvider (provider) {
     inputEnabled: template.querySelector('[name="enabled"]'),
     inputApiKey: template.querySelector('[name="api-key"]'),
     inputColor: template.querySelector('[name="color"]'),
+    inputBgColor: template.querySelector('[name="bg-color"]'),
+    spanBadgeNormal: template.querySelector('span.badge-normal'),
+    spanBadgeWarning: template.querySelector('span.badge-warning'),
     inputWarnAfter: template.querySelector('[name="warn-after"]'),
     inputStopAfter: template.querySelector('[name="stop-after"]'),
     inputResetOn: template.querySelector('[name="reset-on"]'),
@@ -95,18 +100,29 @@ function createProvider (provider) {
   };
   tpl.inputEnabled.checked = provider.enabled;
   tpl.inputApiKey.value = provider.apiKey;
-  tpl.inputColor.value = provider.color || null;
+  tpl.inputColor.value = provider.color || 'White';
+  tpl.inputBgColor.value = provider.bgColor || 'Black';
   tpl.inputWarnAfter.value = provider.warnAfter;
   tpl.inputStopAfter.value = provider.stopAfter;
   tpl.inputResetOn.value = provider.resetOn;
   tpl.inputQuotaKey.value = provider.quotaKey;
   tpl.cellQuotaCharacters.innerText = quota.characters;
+  previewBadge();
 
   // Bind event handlers to the provider form.
   tpl.buttonMoveUp.addEventListener('click', () => moveUpProvider(tpl.divProvider));
   tpl.buttonMoveDown.addEventListener('click', () => moveDownProvider(tpl.divProvider));
   tpl.buttonDelete.addEventListener('click', () => deleteProvider(tpl.divProvider));
   tpl.buttonCacheReset.addEventListener('click', () => quotaResetProvider(tpl, provider.quotaKey));
+  tpl.inputColor.addEventListener('change', previewBadge);
+  tpl.inputBgColor.addEventListener('change', previewBadge);
+
+  function previewBadge () {
+    tpl.spanBadgeNormal.style.color = tpl.inputColor.value;
+    tpl.spanBadgeNormal.style.backgroundColor = tpl.inputBgColor.value;
+    tpl.spanBadgeWarning.style.color = tpl.inputBgColor.value;
+    tpl.spanBadgeWarning.style.backgroundColor = tpl.inputColor.value;
+  }
 
   el.divBackendList.appendChild(template);
   divToProviderMap.set(tpl.divProvider, () => ({
@@ -114,6 +130,7 @@ function createProvider (provider) {
     enabled: tpl.inputEnabled.checked,
     apiKey: tpl.inputApiKey.value,
     color: tpl.inputColor.value,
+    bgColor: tpl.inputBgColor.value,
     warnAfter: Number(tpl.inputWarnAfter.value),
     stopAfter: Number(tpl.inputStopAfter.value),
     resetOn: Number(tpl.inputResetOn.value),

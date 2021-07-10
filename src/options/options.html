@@ -135,7 +135,7 @@
                 
                 <div class="form-row">                  
                   <!-- api key -->
-                  <div class="form-group col-md-8">
+                  <div class="form-group col-md-4">
                     <label for="api-key">Azure Service Key</label>
                     <input class="form-control" type="text" name="api-key" required></input>
                     <small class="form-text text-muted">
@@ -143,31 +143,6 @@
                     </small>
                     <small class="invalid-feedback">
                       This is required.
-                    </small>
-                  </div>
-                  <!-- color -->
-                  <div class="form-group col-md-4">
-                    <label for="api-key">Indicator Color</label>
-                    <input class="form-control" type="text" name="color"></input>
-                    <small class="form-text text-muted">
-                      The addon button's badge text color becomes indicator color when this provider is used. 
-                      (Any CSS color value.)
-                    </small>
-                  </div>
-                </div>
-                <div class="form-row">
-                  <!-- warn after -->
-                  <div class="form-group col-md-4">
-                    <label for="warn-after">Warn After</label>
-                    <div class="input-group">
-                      <input class="form-control" type="number" name="warn-after"
-                            step="1" min="0"></input>
-                      <div class="input-group-append">
-                        <span class="input-group-text">characters</span>
-                      </div>
-                    </div>
-                    <small class="form-text text-muted">
-                      The addon button's badge background color becomes indicator color.
                     </small>
                   </div>
                   <!-- stop after -->
@@ -200,7 +175,39 @@
                     <small class="form-text text-muted">
                       Characters translated is reset on this day of each month.
                     </small>
+                  </div>                  
+                </div>
+                <div class="form-row">
+                  <!-- color -->
+                  <div class="form-group col-md-4">
+                    <label for="api-key">
+                      Badge Text Color
+                      <span class="badge badge-normal">2m</span>                      
+                    </label>
+                    <input class="form-control" type="text" name="color"></input>
                   </div>
+                  <!-- background color -->
+                  <div class="form-group col-md-4">
+                    <label for="api-key">Badge Background Color</label>
+                    <input class="form-control" type="text" name="bg-color"></input>
+                  </div>
+                  <!-- warn after -->
+                  <div class="form-group col-md-4">
+                    <label for="warn-after">
+                      Warn After
+                      <span class="badge badge-warning">2m</span>
+                    </label>
+                    <div class="input-group">
+                      <input class="form-control" type="number" name="warn-after"
+                            step="1" min="0"></input>
+                      <div class="input-group-append">
+                        <span class="input-group-text">characters</span>
+                      </div>
+                    </div>
+                    <small class="form-text text-muted">
+                      The addon button's badge background color becomes indicator color.
+                    </small>
+                  </div>                  
                 </div>
                 <!-- statistics -->
                 <div class="form-row">
@@ -246,7 +253,7 @@
                 </div>
                 <div class="form-row">
                   <!-- api key -->
-                  <div class="form-group col-md-8">
+                  <div class="form-group col-md-4">
                     <label for="api-key">Google Cloud Platform API Key</label>
                     <input class="form-control" type="text" name="api-key" required></input>
                     <small class="form-text text-muted">
@@ -254,31 +261,6 @@
                     </small>
                     <small class="invalid-feedback">
                       This is required.
-                    </small>
-                  </div>
-                  <!-- color -->
-                  <div class="form-group col-md-4">
-                    <label for="api-key">Indicator Color</label>
-                    <input class="form-control" type="text" name="color"></input>
-                    <small class="form-text text-muted">                      
-                      The addon button's badge text color becomes indicator color when this provider is used. 
-                      (Any CSS color value.)
-                    </small>
-                  </div>
-                </div>
-                <div class="form-row">
-                  <!-- warn after -->
-                  <div class="form-group col-md-4">
-                    <label for="warn-after">Warn After</label>
-                    <div class="input-group">
-                      <input class="form-control" type="number" name="warn-after"
-                            step="1" min="0"></input>
-                      <div class="input-group-append">
-                        <span class="input-group-text">characters</span>
-                      </div>
-                    </div>
-                    <small class="form-text text-muted">
-                      The addon button's badge background color becomes indicator color.
                     </small>
                   </div>
                   <!-- stop after -->
@@ -310,6 +292,38 @@
                     </div>
                     <small class="form-text text-muted">
                       Characters translated is reset on this day of each month.
+                    </small>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <!-- color -->
+                  <div class="form-group col-md-4">
+                    <label for="api-key">
+                      Badge Text Color
+                      <span class="badge badge-normal">2m</span>
+                    </label>
+                    <input class="form-control" type="text" name="color"></input>
+                  </div>
+                  <!-- background color -->
+                  <div class="form-group col-md-4">
+                    <label for="api-key">Badge Background Color</label>
+                    <input class="form-control" type="text" name="bg-color"></input>
+                  </div>
+                  <!-- warn after -->
+                  <div class="form-group col-md-4">
+                    <label for="warn-after">
+                      Warn After
+                      <span class="badge badge-warning">2m</span>
+                    </label>
+                    <div class="input-group">
+                      <input class="form-control" type="number" name="warn-after"
+                            step="1" min="0"></input>
+                      <div class="input-group-append">
+                        <span class="input-group-text">characters</span>
+                      </div>
+                    </div>
+                    <small class="form-text text-muted">
+                      Badge text and background color are swapped after this many characters.
                     </small>
                   </div>
                 </div>

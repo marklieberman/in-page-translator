@@ -291,15 +291,15 @@ async function updateBrowserActionBadge (recentProvider, lastError) {
         color: recentProvider.color || 'black'
       });
       browser.browserAction.setBadgeBackgroundColor({
-        color: 'gray'
+        color: recentProvider.bgColor || 'white'
       });
     } else {
       // Color mode is warning.
       browser.browserAction.setBadgeTextColor({
-        color: 'white'
+        color: recentProvider.bgColor || 'black'
       });
       browser.browserAction.setBadgeBackgroundColor({
-        color: recentProvider.color || 'red'
+        color: recentProvider.color || 'white'
       });
     }
 
