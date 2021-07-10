@@ -86,7 +86,12 @@
     })));
 
     // Find buttons with value attributes.
-    items.push(...(await getAllWithAttribute(document.body, 'button[type=button]', 'value')).map(item => ({
+    items.push(...(await getAllWithAttribute(document.body, [
+      'button[type=button]',
+      'button[type=submit]',
+      'input[type=submit]',
+      'input[type=button]'
+    ], 'value')).map(item => ({
       item,
       input: item.getAttribute('value'),
       replacer: (element, output) => {
@@ -95,18 +100,11 @@
         element.setAttribute('value', output);
       }
     })));
-    items.push(...(await getAllWithAttribute(document.body, 'button[type=submit]', 'value')).map(item => ({
-      item,
-      input: item.getAttribute('value'),
-      replacer: (element, output) => {
-        // Replace the value attribute.
-        state.alreadyTranslated.add(element);
-        element.setAttribute('value', output);
-      }
-    })));
-
+    
     // Find inputs with placeholder attributes.
-    items.push(...(await getAllWithAttribute(document.body, 'input[placeholder]', 'placeholder')).map(item => ({
+    items.push(...(await getAllWithAttribute(document.body, [
+      'input[placeholder]' 
+    ], 'placeholder')).map(item => ({
       item,
       input: item.getAttribute('placeholder'),
       replacer: (element, output) => {
@@ -195,15 +193,17 @@
   /**
    * Find all buttons with value attributes.
    */
-  async function getAllWithAttribute (startingElement, selector, attribute) {
+  async function getAllWithAttribute (startingElement, selectors, attribute) {
     let elements = [];
-    for (let element of startingElement.querySelectorAll(selector)) {
-      if (!state.alreadyTranslated.has(element)) {
-        let value = element.getAttribute(attribute);
-        if (value && await shouldTranslate(value)) {
-          elements.push(element);
+    for (let selector of selectors) {
+      for (let element of startingElement.querySelectorAll(selector)) {
+        if (!state.alreadyTranslated.has(element)) {
+          let value = element.getAttribute(attribute);
+          if (value && await shouldTranslate(value)) {
+            elements.push(element);
+          }
         }
-      }
+      }  
     }
     return elements;
   }
