@@ -6,6 +6,7 @@
     return 'already-injected';
   } else {
     window.$$injectedTranslator = true;
+    console.log('translator user script injected');
   }
 
   // -------------------------------------------------------------------------------------------------------------------
@@ -21,8 +22,6 @@
 
   // -------------------------------------------------------------------------------------------------------------------
   // Page translation
-
-  console.log('injected!!!!');
 
   const state = {
     alreadyTranslated: new WeakSet()

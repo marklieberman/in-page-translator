@@ -99,6 +99,11 @@ browser.browserAction.onClicked.addListener((tab) => {
     return;
   }
 
+  // Ignore clicks from non http tabs.
+  if (!tab.url.startsWith('http')) {
+    return;
+  }
+
   if (state.disabledTabs.has(tab.id)) {
     // Enable translation in a disabled tab.
     state.disabledTabs.delete(tab.id);
