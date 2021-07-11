@@ -55,6 +55,13 @@ browser.storage.onChanged.addListener((changes, area) => {
   }
 });
 
+// Add the context menu item.
+browser.menus.create({
+  id: 'translate-selection',
+  title: 'Translate Selection',
+  contexts: [ 'selection' ]
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Listeners
 
@@ -187,6 +194,25 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
   properties: [ 'url' ]
 });
 
+/**
+ * Invoked when the context menu item is clicked.
+ */
+browser.menus.onClicked.addListener((clickInfo, tab) => {
+  if (tab) {
+    switch (clickInfo.menuItemId) {
+      case 'translate-selection': {
+        // Inject the translation script into the tab.    
+        browser.tabs.executeScript(tab.id, {
+          file: '/content/selection-translate.js',
+          runAt: 'document_end',
+          frameId: clickInfo.frameId
+        });
+        break;
+      }
+    }
+  }
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Addon business layer
 
@@ -223,9 +249,9 @@ function shouldTranslateTab (tabId, changeInfo) {
  * Inject and enable the translation script in a tab.
  */
 async function enableTranslationInTab (tabId) {
-  // Inject the translation script into the tab.    
+  // Inject the translation script into the tab.
   browser.tabs.executeScript(tabId, {
-    file: '/translate.js',
+    file: '/content/page-translate.js',
     runAt: 'document_end'
   });
 

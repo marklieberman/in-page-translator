@@ -1,5 +1,8 @@
 'use strict';
 
+/**
+ * Translate the contents of the page.
+ */
 (async function () {
   // Multiple inclusion guard.
   if (window.$$injectedTranslator) {
@@ -15,7 +18,8 @@
   browser.runtime.onMessage.addListener((message) => {
     switch (message.topic) {
       case 'stopTranslate':
-        stopPageTranslation();
+        // Disconnect the mutation oberver.
+        state.observer.disconnect();
         break;
     }
   });
@@ -173,6 +177,19 @@
   }
 
   /**
+   * True if the tag type should be ignore, otherwise false.
+   */
+   function shouldIgnoreTagName (element) {
+    switch (element.tagName) {
+      case 'SCRIPT':
+      case 'NOSCRIPT':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
    * Find all text nodes.
    */
   async function getAllTextNodes (startingElement) {  
@@ -181,8 +198,7 @@
     while((node = treeWalker.nextNode())) {
       // Check if the text content should be translated.
       if (!state.alreadyTranslated.has(node) 
-        && node.parentNode.tagName !== 'SCRIPT'
-        && node.parentNode.tagName !== 'NOSCRIPT'
+        && !shouldIgnoreTagName(node.parentNode)
         && await shouldTranslate(node.data)) {
         nodes.push(node);
       }
@@ -208,48 +224,32 @@
     return elements;
   }
 
-  /**
-   * Translate the page and schedule translation passes on mutation.
-   */
-  async function startPageTranslation () {
-    // Determine the 
-    let result = await browser.storage.local.get(settings);
-    settings.target = result.target;
-
-    // Create an observer to detect mutations after the first translation.
-    if (!state.observer) {
-      // Schedule a translation in the near future each time the DOM is mutated.
-      // This functions as an accumulator when multiple mutations happen rapidly.
-      state.observer = new MutationObserver(() => {
-        if (state.nextPass) {
-          clearTimeout(state.nextPass);
-        }
-        state.nextPass = setTimeout(translatePage, 600);
-      });
-    }
-
-    // Immediately translate the page.
-    await translatePage();
-
-    // Connect the mutation obesever.
-    state.observer.observe(document.body, { 
-      subtree: true,
-      childList: true 
-    });
-  }
-
-  /**
-   * Stop watching for mutations and scheduling translation passes.
-   */
-  function stopPageTranslation () {
-    // Disconnect the mutation oberver.
-    state.observer.disconnect();
-  }
-
   // -------------------------------------------------------------------------------------------------------------------
   // Ready
 
-  startPageTranslation();
+  let result = await browser.storage.local.get(settings);
+  settings.target = result.target;
+  
+  // Create an observer to detect mutations after the first translation.
+  if (!state.observer) {
+    // Schedule a translation in the near future each time the DOM is mutated.
+    // This functions as an accumulator when multiple mutations happen rapidly.
+    state.observer = new MutationObserver(() => {
+      if (state.nextPass) {
+        clearTimeout(state.nextPass);
+      }
+      state.nextPass = setTimeout(translatePage, 600);
+    });
+  }
+
+  // Immediately translate the page.
+  await translatePage();
+
+  // Connect the mutation obesever.
+  state.observer.observe(document.body, { 
+    subtree: true,
+    childList: true 
+  });
 
 })();
 
