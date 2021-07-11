@@ -156,7 +156,7 @@
                       </div>
                     </div>
                     <small class="form-text text-muted">
-                      Provider cannot be used if submitted characters will exceed this amount.
+                      Provider cannot be used if submitted characters will exceed this amount. Use zero to disable.
                     </small>
                   </div>
                   <!-- reset on -->
@@ -182,20 +182,26 @@
                   <div class="form-group col-md-4">
                     <label for="api-key">
                       Badge Text Color
-                      <span class="badge badge-normal">2m</span>                      
+                      <span class="badge badge-normal">0.5</span>                      
                     </label>
                     <input class="form-control" type="text" name="color"></input>
+                    <small class="form-text text-muted">
+                      Color of the badge text when this provider is used.
+                    </small>
                   </div>
                   <!-- background color -->
                   <div class="form-group col-md-4">
                     <label for="api-key">Badge Background Color</label>
                     <input class="form-control" type="text" name="bg-color"></input>
+                    <small class="form-text text-muted">
+                      Background color of the badge text when this provider is used.
+                    </small>
                   </div>
                   <!-- warn after -->
                   <div class="form-group col-md-4">
                     <label for="warn-after">
                       Warn After
-                      <span class="badge badge-warning">2m</span>
+                      <span class="badge badge-warning">0.5</span>
                     </label>
                     <div class="input-group">
                       <input class="form-control" type="number" name="warn-after"
@@ -203,9 +209,12 @@
                       <div class="input-group-append">
                         <span class="input-group-text">characters</span>
                       </div>
+                      <small class="invalid-feedback order-last">
+                        Must be less than the character quota.
+                      </small>
                     </div>
                     <small class="form-text text-muted">
-                      Badge text and background color are swapped after this many characters.
+                      Badge text and background color are swapped after this many characters. Use zero to disable.
                     </small>
                   </div>                  
                 </div>
@@ -274,7 +283,7 @@
                       </div>
                     </div>
                     <small class="form-text text-muted">
-                      Provider cannot be used if submitted characters will exceed this amount.
+                      Provider cannot be used if submitted characters will exceed this amount. Use zero to disable.
                     </small>
                   </div>
                   <!-- reset on -->
@@ -300,20 +309,26 @@
                   <div class="form-group col-md-4">
                     <label for="api-key">
                       Badge Text Color
-                      <span class="badge badge-normal">2m</span>
+                      <span class="badge badge-normal">0.5</span>
                     </label>
                     <input class="form-control" type="text" name="color"></input>
+                    <small class="form-text text-muted">
+                      Color of the badge text when this provider is used.
+                    </small>
                   </div>
                   <!-- background color -->
                   <div class="form-group col-md-4">
                     <label for="api-key">Badge Background Color</label>
                     <input class="form-control" type="text" name="bg-color"></input>
+                    <small class="form-text text-muted">
+                      Background color of the badge text when this provider is used.
+                    </small>
                   </div>
                   <!-- warn after -->
                   <div class="form-group col-md-4">
                     <label for="warn-after">
                       Warn After
-                      <span class="badge badge-warning">2m</span>
+                      <span class="badge badge-warning">0.5</span>
                     </label>
                     <div class="input-group">
                       <input class="form-control" type="number" name="warn-after"
@@ -321,10 +336,13 @@
                       <div class="input-group-append">
                         <span class="input-group-text">characters</span>
                       </div>
+                      <small class="invalid-feedback order-last">
+                        Must be less than the character quota.
+                      </small>
                     </div>
                     <small class="form-text text-muted">
-                      Badge text and background color are swapped after this many characters.
-                    </small>
+                      Badge text and background color are swapped after this many characters. Use zero to disable.
+                    </small>                    
                   </div>
                 </div>
                 <div class="form-row"></div>

@@ -27,8 +27,7 @@ browser.storage.local.get({
   el.inputTarget.value = results.target;
   el.inputDomains.value = results.domains.join('\n');
   el.inputCacheSize.value = results.cacheSize;
-  Object.assign(quotas, results.quotas);
-  console.log(quotas);
+  Object.assign(quotas, results.quotas);  
   if (results.providers.length) {
     el.divBackendList.innerText = '';
     results.providers.forEach(provider => createProvider(provider));
@@ -114,6 +113,9 @@ function createProvider (provider) {
   tpl.buttonMoveDown.addEventListener('click', () => moveDownProvider(tpl.divProvider));
   tpl.buttonDelete.addEventListener('click', () => deleteProvider(tpl.divProvider));
   tpl.buttonCacheReset.addEventListener('click', () => quotaResetProvider(tpl, provider.quotaKey));
+  tpl.inputStopAfter.addEventListener('change', () => {
+    tpl.inputWarnAfter.max = Number(tpl.inputStopAfter.value);
+  });
   tpl.inputColor.addEventListener('change', previewBadge);
   tpl.inputBgColor.addEventListener('change', previewBadge);
 
@@ -166,6 +168,10 @@ async function quotaResetProvider (tpl, quotaKey) {
     };
     await browser.storage.local.set(data);
     tpl.cellQuotaCharacters.innerText = newQuota;
+    browser.runtime.sendMessage({
+      topic: 'quotaEdited',
+      quotaKey
+    });
   }
 }
 

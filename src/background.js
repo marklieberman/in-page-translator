@@ -75,6 +75,7 @@ browser.runtime.onMessage.addListener(async (message) => {
       await updateBrowserActionBadge(result.provider, result.error);
 
       // Return the results without the provider.
+      state.recentProvider = result.provider;
       delete result.provider;
       return result;
     }
@@ -84,6 +85,11 @@ browser.runtime.onMessage.addListener(async (message) => {
       return browser.storage.local.set({ 
         cacheData: [] 
       });
+    }
+    case 'quotaEdited': {
+      // Redraw the badge.
+      let provider = settings.providers.find(provider => provider.quotaKey === message.quotaKey);
+      updateBrowserActionBadge(provider);
     }
   }
 });
@@ -250,7 +256,6 @@ async function disableTranslationInTab (tabId) {
  * Update the appearance of the browser action text..
  */
 async function updateBrowserActionBadge (recentProvider, lastError) {
-
   if (recentProvider === 'cache') {
     // Last translation was served by cache.
     return;
@@ -309,26 +314,39 @@ async function updateBrowserActionBadge (recentProvider, lastError) {
     }
 
     // Display the quota for the recent provider.
-    if (quota.characters >= 10000000) {
-      browser.browserAction.setBadgeText({
-        text: `${Math.floor(quota.characters / 1000000)}m`
-      });
-    } else
-    if (quota.characters >= 1000000) {
-      browser.browserAction.setBadgeText({
-        text: `${Math.floor(quota.characters / 100000) / 10}m`
-      });
-    } else
-    if (quota.characters >= 1000) {
-      browser.browserAction.setBadgeText({
-        text: `${Math.floor(quota.characters / 1000)}k`
-      });
+    if (recentProvider.stopAfter > 0) {
+      if (quota.characters >= 1000000000) {      
+        browser.browserAction.setBadgeText({
+          text: '∞'
+        });      
+      } else
+      if (quota.characters >= 10000000) {
+        // Format: '999'
+        browser.browserAction.setBadgeText({
+          text: `${Math.floor(quota.characters / 1000000)}`
+        });      
+      } else
+      if (quota.characters >= 100000) {
+        // Format: '9.9'
+        browser.browserAction.setBadgeText({
+          text: `${Math.floor(quota.characters / 100000) / 10}`
+        });
+      } else
+      if (quota.characters >= 1) {
+        browser.browserAction.setBadgeText({
+          text: '~0'
+        });
+      } else {
+        browser.browserAction.setBadgeText({
+          text: '0'
+        });
+      }
     } else {
       browser.browserAction.setBadgeText({
-        text: `${quota.characters}`
+        text: null
       });
     }
-  }
+  } 
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
