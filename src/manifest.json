@@ -14,8 +14,8 @@
   "description": "In-page translator for Firefox",
 
   "icons": {
-    "48": "icons/translate-black.svg",
-    "96": "icons/translate-black.svg"
+    "48": "icons/translate-light.svg",
+    "96": "icons/translate-light.svg"
   },
 
   "permissions": [
