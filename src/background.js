@@ -86,7 +86,7 @@ browser.runtime.onMessage.addListener(async (message) => {
     }
     case 'findOverride': {
       // Find any override for a host.
-      return findOverride(message.host);
+      return findOverride(new URL(message.url));
     }
     case 'flushCache': {
       // Delete the contents of the cache.
@@ -221,17 +221,26 @@ browser.menus.onClicked.addListener((clickInfo, tab) => {
 /**
  * Find any configured override for a domain. 
  */
-function findOverride (host) {
+function findOverride (url) {
   return settings.overrides.find(override => {
     if (override.matchRegex) {
-      // Match based on regular expression pattern.
-      return new RegExp(override.matchDomain, 'i').test(host);
+      // Match URL based on regular expression pattern.
+      try {
+        return new RegExp(override.matchDomain, 'i').test(url.href);
+      } catch (error) {
+        console.log('match domain failed', error);
+        return false;
+      }
+    } else
+    if (override.matchWholeUrl) {
+      // Match if URL contains value.
+      return url.href.includes(override.matchDomain);
     } else {
-      // Match on any one of comma separated domains.
+      // Match if host contains any of comma-separated values.
       return override.matchDomain
         .split(',')
         .map(v => v.trim())
-        .find(v => host.includes(v));
+        .find(v => url.host.includes(v));
     }
   });
 }
@@ -252,7 +261,7 @@ function shouldTranslateTab (tabId, changeInfo) {
 
   // Matching domains should be translated.
   let url = new URL(changeInfo.url);
-  if (findOverride(url.host)) {
+  if (findOverride(url)) {
     state.automaticTabs.add(tabId);
     return true;
   } else {
@@ -421,6 +430,7 @@ class CacheManager {
       console.log('loading cache', this.cacheName);
       const data = {};
       data[this.cacheName] = [];
+      this.cacheData = [];
       this.cacheData = (await browser.storage.local.get(data))[this.cacheName];    
     }
   }
@@ -448,12 +458,14 @@ class CacheManager {
     for (let i = 0; i < this.cacheData.length; i++) {
       let entry = this.cacheData[i];
       if ((entry.input === input) && (entry.target === target)) {
-        // Treating cache like LRU so move hit to top of the list.
-        this.cacheData.splice(i, 1);
-        this.cacheData.unshift(entry);
+        // Treating cache like LRU so move hit to top of the list
+        if (i > 0) {
+          this.cacheData.splice(i, 1);
+          this.cacheData.unshift(entry);
 
-        // Schedule a prune and persist pass in the near future.
-        this.schedulePersistPass();
+          // Schedule a prune and persist pass in the near future.
+          this.schedulePersistPass();
+        }
 
         return entry.output;
       }

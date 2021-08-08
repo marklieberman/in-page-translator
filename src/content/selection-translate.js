@@ -11,7 +11,7 @@
   
   const override = await browser.runtime.sendMessage({
     topic: 'findOverride',
-    host: location.host
+    url: String(location.href)
   });
 
   /**

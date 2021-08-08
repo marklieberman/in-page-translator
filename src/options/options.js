@@ -43,7 +43,8 @@ browser.storage.local.get({
 // Bind event handlers to the form.
 el.buttonAddDomain.addEventListener('click', () => createOverride({
   matchDomain: null,
-  matchRegex: false,
+  matchWholeUrl: false,
+  matchRegex: false,  
   dedicatedCache: false,
   dedicatedCacheName: `${cachePrefix}-${new Date().getTime()}`,
   dedicatedCacheSize: 500,
@@ -85,7 +86,12 @@ function createOverride (override) {
   let tpl = {
     divOverride: template.firstElementChild,
     divMatchDomainGroup: template.querySelector('div.match-domain-group'),
+    labelMatchDomain: template.querySelector('label[for="match-domain"]'),
+    helpTextDomain: template.querySelector('.match-domain-help'),
+    helpTextUrl: template.querySelector('.match-url-help'),
+    helpTextRegex: template.querySelector('.match-regex-help'),
     inputMatchDomain: template.querySelector('[name="match-domain"]'),
+    inputMatchWholeUrl: template.querySelector('[name="match-whole-url"]'),
     inputMatchRegex: template.querySelector('[name="match-regex"]'),
     divDedicatedCacheSizeGroup: template.querySelector('div.dedicated-cache-size-group'),
     inputDedicatedCache: template.querySelector('[name="dedicated-cache"]'),
@@ -96,14 +102,18 @@ function createOverride (override) {
     buttonFlushCache: template.querySelector('button.flush-cache')
   };
   tpl.inputMatchDomain.value = override.matchDomain;
+  tpl.inputMatchWholeUrl.checked = override.matchWholeUrl;
   tpl.inputMatchRegex.checked = override.matchRegex;
   tpl.inputDedicatedCache.checked = override.dedicatedCache;
   tpl.inputDedicatedCacheName.value = override.dedicatedCacheName;
   tpl.inputDedicatedCacheSize.value = override.dedicatedCacheSize;
   tpl.inputCacheOnly.checked = override.cacheOnly;
+  matchParameterChanged();
   dedicatedCacheChanged();
 
   // Bind event handlers to the overrides form.
+  tpl.inputMatchWholeUrl.addEventListener('change', () => matchParameterChanged());
+  tpl.inputMatchRegex.addEventListener('change', () => matchParameterChanged());
   tpl.inputDedicatedCache.addEventListener('change', () => dedicatedCacheChanged());
   tpl.buttonDelete.addEventListener('click', () => tpl.divOverride.parentNode.removeChild(tpl.divOverride));
   tpl.buttonFlushCache.addEventListener('click', async () => {
@@ -112,6 +122,34 @@ function createOverride (override) {
     await browser.storage.local.set(data);
     alert('Dedicated cache has been flushed');
   });
+
+  function matchParameterChanged () {
+    tpl.helpTextDomain.classList.add('d-none');
+    tpl.helpTextUrl.classList.add('d-none');
+    tpl.helpTextRegex.classList.add('d-none');
+
+    if (tpl.inputMatchRegex.checked) {
+      tpl.helpTextRegex.classList.remove('d-none');
+    } else
+    if (tpl.inputMatchWholeUrl.checked) {
+      tpl.helpTextUrl.classList.remove('d-none');
+    } else {
+      tpl.helpTextDomain.classList.remove('d-none');
+    }
+
+    if (tpl.inputMatchRegex.checked) {
+      tpl.inputMatchWholeUrl.checked = true;
+      tpl.inputMatchWholeUrl.disabled = true;      
+    } else {
+      tpl.inputMatchWholeUrl.disabled = false;
+    }
+
+    if (tpl.inputMatchWholeUrl.checked) {
+      tpl.labelMatchDomain.innerText = 'Match URL';
+    } else {
+      tpl.labelMatchDomain.innerText = 'Match Domain';      
+    }
+  }
 
   function dedicatedCacheChanged () {
     if (tpl.inputDedicatedCache.checked) {
@@ -130,6 +168,7 @@ function createOverride (override) {
   el.divOverridesList.appendChild(template);
   divToOverrideMap.set(tpl.divOverride, () => ({
     matchDomain: tpl.inputMatchDomain.value,
+    matchWholeUrl: tpl.inputMatchWholeUrl.checked,
     matchRegex: tpl.inputMatchRegex.checked,
     dedicatedCache: tpl.inputDedicatedCache.checked,
     dedicatedCacheName: tpl.inputDedicatedCacheName.value,
