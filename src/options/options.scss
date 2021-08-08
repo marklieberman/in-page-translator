@@ -1,7 +1,16 @@
 @import "../../node_modules/bootstrap/scss/functions";
 @import "../../node_modules/bootstrap/scss/variables";
 
-#backend-list {
+#overrides-list {
+    & > div {
+        padding: 1rem;
+        border: 1px solid $list-group-border-color;
+        border-radius: $border-radius;
+        margin-bottom: $form-group-margin-bottom;
+    }
+}
+
+#providers-list {
     & > div {
         padding: 1rem;
         border: 1px solid $list-group-border-color;

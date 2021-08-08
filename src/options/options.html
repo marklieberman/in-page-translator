@@ -36,18 +36,6 @@
             </div>
 
             <div class="form-row">
-              <!-- domains -->
-              <div class="form-group col-md-12">
-                <label for="cache-size">Automatic Domains</label>
-                <textarea class="form-control" type="text" id="domains"></textarea>
-                <small class="form-text text-muted">
-                  Automatically enable translation when visiting these domains.
-                  Enter one domain on each line.
-                </small>
-              </div>
-            </div>
-
-            <div class="form-row">
               <!-- cache size -->
               <div class="form-group col-md-12">
                 <label for="cache-size">Translation Cache Size</label>
@@ -64,9 +52,24 @@
               </div>
             </div>
 
+            <!-- site specific behaviour list -->
+            <div class="form-row">
+              <div class="form-group col-md-12">
+                <hr>
+                <h5>Per-Domain Settings</h5>
+                <p>
+                  Custom configuration to be applied on a per-domain basis.
+                </p>
+                <button class="btn btn-secondary" type="button" id="add-domain">
+                  Add Domain
+                </button>
+              </div>
+            </div>
+            <div id="overrides-list"></div>
+
             <!-- backend list -->            
-            <div class="form-row">              
-              <div class="form-group col-md-12">              
+            <div class="form-row">
+              <div class="form-group col-md-12">
                 <hr>
                 <h5>Translation Providers</h5>
                 <p>
@@ -85,9 +88,7 @@
                 </button>
               </div>
             </div>
-            <div id="backend-list">
-              <span class="empty">No translation providers.</span>
-            </div>
+            <div id="providers-list"></div>
 
             <!-- controls -->
             <div class="form-row">
@@ -103,6 +104,65 @@
               </div>
             </div>
 
+            <template id="override-template">
+              <div class="override">
+                <input type="hidden" name="dedicated-cache-name"></input>
+                <div class="form-row">
+                  <!-- actions -->
+                  <div class="form-group col-md-12 text-right">
+                    <button class="btn btn-sm btn-secondary delete" type="button" title="Delete">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary flush-cache" type="button" title="Flush Cache">
+                      <i class="fas fa-redo fa-flip-horizontal"></i>
+                    </button>
+                  </div>
+                </div>  
+                <div class="form-row">
+                  <div class="form-group col-md-12 match-domain-group">
+                    <!-- match domain -->
+                    <label for="match-domain">Match Domain</label>
+                    <input class="form-control" type="text" name="match-domain" required></input>
+                    <small class="invalid-feedback">
+                      This is required.
+                    </small>                    
+                  </div>
+                  <div class="form-group col-md-4 dedicated-cache-size-group d-none">
+                    <!-- cache size -->
+                    <label for="cache-size">Cache Size</label>
+                    <div class="input-group">
+                      <input class="form-control" type="number" name="dedicated-cache-size"
+                            step="1" min="1" max="100000"></input>
+                      <div class="input-group-append">
+                        <span class="input-group-text">entries</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group col-md-12">
+                    <div class="form-check">
+                      <label class="form-check-label" for="match-regex">
+                        <input class="form-check-input" type="checkbox" name="match-regex">
+                        Match domain using regular expressions.
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <label class="form-check-label" for="cache-only">
+                        <input class="form-check-input" type="checkbox" name="cache-only">
+                        Automatic translation from cache only.
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <label class="form-check-label" for="dedicated-cache">
+                        <input class="form-check-input" type="checkbox" name="dedicated-cache">
+                        Use a dedicated cache.
+                      </label>
+                    </div>                    
+                  </div>
+                </div>
+              </div>
+            </template>
             <template id="azure-backend-template">
               <div class="azure-backend">                
                 <input type="hidden" name="quota-key"></input>
@@ -127,7 +187,7 @@
                     <button class="btn btn-sm btn-secondary delete" type="button" title="Delete">
                       <i class="fas fa-trash"></i>
                     </button>
-                    <button class="btn btn-sm btn-secondary cache-reset" type="button" title="Reset Quota">
+                    <button class="btn btn-sm btn-secondary reset-quota" type="button" title="Reset Quota">
                       <i class="fas fa-redo fa-flip-horizontal"></i>
                     </button>
                   </div>
@@ -255,7 +315,7 @@
                     <button class="btn btn-sm btn-secondary delete" type="button" title="Delete">
                       <i class="fas fa-trash"></i>
                     </button>
-                    <button class="btn btn-sm btn-secondary cache-reset" type="button" title="Reset Quota">
+                    <button class="btn btn-sm btn-secondary reset-quota" type="button" title="Reset Quota">
                       <i class="fas fa-redo fa-flip-horizontal"></i>
                     </button>
                   </div>

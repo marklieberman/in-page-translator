@@ -5,14 +5,13 @@ const state = {
   enabledTabs: new Set(),   // Manually enabled in these tabs.
   disabledTabs: new Set(),  // Manually disabled in these tabs.
   automaticTabs: new Set(), // Automatically enabled in these tabs.
-  cacheHandle: null         // Timeout for pruning and persisting cache.
+  caches: {}                // List of cache managers.
 };
 
 const settings = {
   target: 'en',
-  domains: [],
   cacheSize: 1000,
-  cacheData: [],
+  overrides: [],
   providers: [],
   quotas: {}
 };
@@ -21,9 +20,8 @@ const settings = {
 (async function () {  
   let data = await browser.storage.local.get(settings);
   settings.target = data.target;
-  settings.domains = data.domains;
+  settings.overrides = data.overrides;
   settings.cacheSize = data.cacheSize;
-  settings.cacheData = data.cacheData;
   settings.providers = data.providers;
   settings.quotas = data.quotas;
 
@@ -40,8 +38,8 @@ browser.storage.onChanged.addListener((changes, area) => {
     if (changes.target) {
       settings.target = changes.target.newValue;
     }
-    if (changes.domains) {
-      settings.domains = changes.domains.newValue;
+    if (changes.overrides) {
+      settings.overrides = changes.overrides.newValue;
     }
     if (changes.cacheSize) {
       settings.cacheSize = changes.cacheSize.newValue;
@@ -75,8 +73,8 @@ browser.runtime.onMessage.addListener(async (message) => {
       await checkResetQuotas();
 
       // Perform the translation.
-      let target = message.target || settings.target;
-      let result = await translate(target, message.q);
+      let target = message.target || settings.target;      
+      let result = await translate(target, message.q, message.override, message.manual);
 
       // Update the browser action icon.
       await updateBrowserActionBadge(result.provider, result.error);
@@ -85,6 +83,10 @@ browser.runtime.onMessage.addListener(async (message) => {
       state.recentProvider = result.provider;
       delete result.provider;
       return result;
+    }
+    case 'findOverride': {
+      // Find any override for a host.
+      return findOverride(message.host);
     }
     case 'flushCache': {
       // Delete the contents of the cache.
@@ -152,7 +154,7 @@ browser.tabs.onRemoved.addListener((tabId) => {
  * Invoked when a tab is created.
  * Enable transation for matching tabs and URLs.
  */
- browser.tabs.onCreated.addListener((tab) => { 
+browser.tabs.onCreated.addListener((tab) => { 
   // The API key must be configured.
   if (!settings.providers.length) {
     return;
@@ -217,6 +219,24 @@ browser.menus.onClicked.addListener((clickInfo, tab) => {
 // Addon business layer
 
 /**
+ * Find any configured override for a domain. 
+ */
+function findOverride (host) {
+  return settings.overrides.find(override => {
+    if (override.matchRegex) {
+      // Match based on regular expression pattern.
+      return new RegExp(override.matchDomain, 'i').test(host);
+    } else {
+      // Match on any one of comma separated domains.
+      return override.matchDomain
+        .split(',')
+        .map(v => v.trim())
+        .find(v => host.includes(v));
+    }
+  });
+}
+
+/**
  * True if translation should be enabled for a tab, otherwise false.
  */
 function shouldTranslateTab (tabId, changeInfo) {
@@ -231,18 +251,14 @@ function shouldTranslateTab (tabId, changeInfo) {
   }
 
   // Matching domains should be translated.
-  if (settings.domains.length) {
-    let url = new URL(changeInfo.url);
-    if (settings.domains.find(domain => ~url.host.indexOf(domain))) {
-      state.automaticTabs.add(tabId);
-      return true;
-    } else {
-      state.automaticTabs.delete(tabId);
-      return false;
-    }
+  let url = new URL(changeInfo.url);
+  if (findOverride(url.host)) {
+    state.automaticTabs.add(tabId);
+    return true;
+  } else {
+    state.automaticTabs.delete(tabId);
+    return false;
   }
-
-  return false;
 }
 
 /**
@@ -382,6 +398,145 @@ const ERROR_NO_PROVIDERS = 'no_providers';
 const ERROR_CHARACTER_QUOTA_EXCEEDED = 'character_quota_exceeded';
 const ERROR_ALL_PROVIDERS_QUOTA_EXCEEDED = 'all_providers_quota_exceeded';
 
+class CacheManager {
+
+  constructor (cacheName, cacheSize) {
+    this.cacheName = cacheName;
+    this.cacheSize = cacheSize;
+    this.cacheData = null;
+    this.cacheHandle = null;
+    this.released = false;
+  }
+
+  setCacheSize (cacheSize) {
+    this.cacheSize = cacheSize;
+  }
+
+  /**
+   * Load the cache data from storage.
+   */
+  async load () {    
+    this.released = false;
+    if (!this.cacheData) {
+      console.log('loading cache', this.cacheName);
+      const data = {};
+      data[this.cacheName] = [];
+      this.cacheData = (await browser.storage.local.get(data))[this.cacheName];    
+    }
+  }
+
+  /**
+   * Release the cache.
+   * Cache can be removed from memory once released.
+   */
+  release () {    
+    if (this.cacheHandle) {
+      // Wait for persist to finish.
+      this.released = true;
+    } else {
+      // Immediately clear memory.
+      console.log('release cache (immediate)', this.cacheName);
+      this.cacheData = null;
+      this.released = false;
+    }
+  }
+
+  /**
+   * Lookup an entry in the cache.
+   */
+  get (input, target) {
+    for (let i = 0; i < this.cacheData.length; i++) {
+      let entry = this.cacheData[i];
+      if ((entry.input === input) && (entry.target === target)) {
+        // Treating cache like LRU so move hit to top of the list.
+        this.cacheData.splice(i, 1);
+        this.cacheData.unshift(entry);
+
+        // Schedule a prune and persist pass in the near future.
+        this.schedulePersistPass();
+
+        return entry.output;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Add an entry to the cache.
+   */
+  set (input, target, output) {
+    this.cacheData.unshift({
+      input,
+      output,
+      target
+    });
+    
+    // Schedule a prune and persist pass in the near future.
+    this.schedulePersistPass();
+  }
+
+  /**
+   * Schedule a cache prune and persist pass in the neat future.
+   * Multiple calls will cancel any existing scheduled pass.
+   */
+  schedulePersistPass () {
+    // Schedule a prune and persist in the near future.
+    // The timeout is used as an accumulator when there are multiple updates in a short time.
+    if (this.cacheHandle) {
+      clearTimeout(this.cacheHandle);
+      this.cacheHandle = null;
+    }
+    let self = this;
+    this.cacheHandle = setTimeout(() => {
+      self.cacheHandle = null;
+      self.prune();
+      self.persist();
+    }, 5000);
+  }
+
+  /**
+   * Clean old entries from the cache.
+   */
+  prune () {
+    console.log('pruning cache', this.cacheName, this.cacheData.length);
+    this.cacheData.length = Math.min(this.cacheData.length, this.cacheSize);
+  }
+
+  /**
+   * Persist the cache to local storage.
+   * Unload the cache data from memory.
+   */
+  async persist () {
+    console.log('persisting cache', this.cacheName);
+    const data = {};
+    data[this.cacheName] = this.cacheData;
+    await browser.storage.local.set(data);
+    if (this.released) {
+      console.log('release cache (delayed)', this.cacheName);
+      this.cacheData = null;
+      this.released = false;
+    }
+  }
+
+}
+
+/**
+ * Get a cache manager instance.
+ */
+function getCacheForOverride (override) {
+  const cacheName = override.dedicatedCache ? override.dedicatedCacheName : 'cache-default';
+  const cacheSize = override.dedicatedCache ? override.dedicatedCacheSize : settings.cacheSize;
+  let cache = state.caches[cacheName];
+  if (cache) {
+    // Update the cache size in case it changed.
+    cache.setCacheSize(cacheSize);
+  } else {
+    // Create a new cache manager instance.
+    cache = state.caches[cacheName] = new CacheManager(cacheName, cacheSize);
+  }
+  return cache;
+}
+
 /**
  * Reset any quotas that are past the reset date.
  */
@@ -451,89 +606,20 @@ function throwIfExceedsQuota (provider, consumed) {
 }
 
 /**
- * Lookup an entry in the cache.
- */
-function cacheGet (input, target) {
-  let cache = settings.cacheData;
-  for (let i = 0; i < cache.length; i++) {
-    let entry = cache[i];
-    if ((entry.input === input) && (entry.target === target)) {
-      // Treating cache like LRU so move hit to top of the list.
-      cache.splice(i, 1);
-      cache.unshift(entry);
-
-      // Schedule a prune and persist pass in the near future.
-      schedulePersistPass();
-
-      return entry.output;
-    }
-  }
-  return null;
-}
-
-/**
- * Add an entry to the cache.
- */
-function cacheSet (input, target, output) {
-  settings.cacheData.unshift({
-    input,
-    output,
-    target
-  });
-  
-  // Schedule a prune and persist pass in the near future.
-  schedulePersistPass();
-}
-
-/**
- * Schedule a cache prune and persist pass in the neat future.
- * Multiple calls will cancel any existing scheduled pass.
- */
-function schedulePersistPass () {
-  // Schedule a prune and persist in the near future.
-  // The timeout is used as an accumulator when there are multiple updates in a short time.
-  if (state.cacheHandle) {
-    clearTimeout(state.cacheHandle);
-  }
-  state.cacheHandle = setTimeout(() => {
-    state.cacheHandle = null;
-    cachePrune();
-    cachePersist();    
-  }, 5000);
-}
-
-/**
- * Clean old entries from the cache.
- */
-function cachePrune () {
-  console.log('pruning cache', settings.cacheData.length);
-  while (settings.cacheData.length > settings.cacheSize) {
-    settings.cacheData.pop();
-  }
-}
-
-/**
- * Persist the cache to local storage.
- */
-function cachePersist () {
-  console.log('persisting cache');
-  return browser.storage.local.set({
-    cacheData: settings.cacheData
-  });
-}
-
-/**
  * Translate an array of strings. 
  */
-async function translate (target, q) {  
+async function translate (target, q, override = {}, manual = false) {  
   let outputs = [], 
       misses = [], 
       error = null, 
-      provider = 'cache';
+      provider = null;
 
   // Populate the outputs array from cached translations.
+  const cache = getCacheForOverride(override);
+  await cache.load();
+  
   for (let i = 0; i < q.length; i++) {
-    let output = cacheGet(q[i], target);
+    let output = cache.get(q[i], target);
     if (output) {
       // Input has a cached translation.      
       outputs[i] = output;
@@ -543,66 +629,81 @@ async function translate (target, q) {
     }      
   }
 
+  // Copy all inputs to missed outputs without translation.
+  function passThruMissed () {
+    for (let i = 0; i < misses.length; i++) {
+      outputs[misses[i].i] = misses[i].q;
+    }  
+  }
+
   if (misses.length) {    
-    try {
-      let providers = settings.providers.filter(provider => provider.enabled);
-      if (!providers.length) {
-        // No providers are defined or enabled.
-        throw ERROR_NO_PROVIDERS;
-      }
+    // Invoke the providers if there are cache misses and:
+    // 1) the manual flag is set, or
+    // 2) the cacheOnly flag is not set.
+    if (!manual && override.cacheOnly) {
+      passThruMissed();
+    } else {
+      try {        
+        let providers = settings.providers.filter(provider => provider.enabled);
+        if (!providers.length) {
+          // No providers are defined or enabled.
+          throw ERROR_NO_PROVIDERS;
+        }
 
-      // Test each provider until one is able to provide a translation.
-      let translations = null;
-      for (let i = 0; (i < providers.length) && (translations === null); i++) {        
-        try {
-          // Submit the input to the provider.
-          provider = providers[i];
-          switch (provider.service) {
-            case 'azure':
-              translations = await azureTranslate(provider, target, misses);
-              break;
-            case 'google':
-              translations = await googleTranslate(provider, target, misses);
-              break;
-            default:
+        // Test each provider until one is able to provide a translation.
+        let translations = null;
+        for (let i = 0; (i < providers.length) && (translations === null); i++) {        
+          try {
+            // Submit the input to the provider.
+            provider = providers[i];
+            switch (provider.service) {
+              case 'azure':
+                translations = await azureTranslate(provider, target, misses, cache);
+                break;
+              case 'google':
+                translations = await googleTranslate(provider, target, misses, cache);
+                break;
+              default:
+                // Should never happen.
+                throw new Error('unsupported provider');
+            }
+
+            if (!translations.length) {
               // Should never happen.
-              throw new Error('unsupported provider');
-          }
+              throw new Error('output was empty');
+            }
 
-          if (!translations.length) {
-            // Should never happen.
-            throw new Error('output was empty');
-          }
-
-          // Copy translations into the outputs array.
-          for (let i = 0; i < misses.length; i++) {
-            outputs[misses[i].i] = translations[i];
-          }
-        } catch (error) {
-          if (error === ERROR_CHARACTER_QUOTA_EXCEEDED) {
-            // Current provider does not have enough characters to process this request.
-            // Try the next provider, if available.
-            console.log('quota exceeded for', provider.quotaKey);
-            continue;
-          } else {
-            throw error;
+            // Copy translations into the outputs array.
+            for (let i = 0; i < misses.length; i++) {
+              outputs[misses[i].i] = translations[i];
+            }
+          } catch (error) {
+            if (error === ERROR_CHARACTER_QUOTA_EXCEEDED) {
+              // Current provider does not have enough characters to process this request.
+              // Try the next provider, if available.
+              console.log('quota exceeded for', provider.quotaKey);
+              continue;
+            } else {
+              throw error;
+            }
           }
         }
-      }
-      if (translations === null) {
-        // All providers over quota.
-        provider = null;
-        throw ERROR_ALL_PROVIDERS_QUOTA_EXCEEDED;
-      }
-    } catch (ex) {
-      // Translation failed; return untranslated strings.
-      error = (ex instanceof Error) ? ex.message : ex;
-      console.log('translation failed', error);
-      for (let i = 0; i < misses.length; i++) {
-        outputs[misses[i].i] = misses[i].q;
+        if (translations === null) {
+          // All providers over quota.
+          provider = null;
+          throw ERROR_ALL_PROVIDERS_QUOTA_EXCEEDED;
+        }
+      } catch (ex) {
+        // Translation failed; return untranslated strings.
+        error = (ex instanceof Error) ? ex.message : ex;
+        console.log('translation failed', error);
+        passThruMissed();
       }
     }
   }
+
+  // Done using this cache.
+  cache.release();
 
   return {
     provider,
@@ -636,7 +737,7 @@ function chunkifyMisses (misses, maxElements, maxCharacters) {
 /**
  * Use Microsoft Azure as the translation provider. 
  */
-async function azureTranslate(provider, target, misses) {
+async function azureTranslate(provider, target, misses, cache) {
   let results = [], 
       chunks = chunkifyMisses(misses, 100, 10000);
 
@@ -668,7 +769,7 @@ async function azureTranslate(provider, target, misses) {
       for (let j = 0; j < chunk.length; j++) {
         let output = he.decode(json[j].translations[0].text);
         results.push(output);
-        cacheSet(chunk[j].q, target, output);
+        cache.set(chunk[j].q, target, output);
       }
     } else {
       throw new Error(`api returned status ${res.status}`);
@@ -681,7 +782,7 @@ async function azureTranslate(provider, target, misses) {
 /**
  * Use Google Cloud Platform as the translation provider. 
  */
-async function googleTranslate(provider, target, misses) {
+async function googleTranslate(provider, target, misses, cache) {
   let results = [], 
       chunks = chunkifyMisses(misses, 100, 5000);
 
@@ -713,7 +814,7 @@ async function googleTranslate(provider, target, misses) {
       for (let j = 0; j < chunk.length; j++) {
         let output = he.decode(translations[j].translatedText);
         results.push(output);
-        cacheSet(chunk[j].q, target, output);
+        cache.set(chunk[j].q, target, output);
       }
     } else {
       throw new Error(`api returned status ${res.status}`);
@@ -722,4 +823,3 @@ async function googleTranslate(provider, target, misses) {
 
   return results; 
 }
-

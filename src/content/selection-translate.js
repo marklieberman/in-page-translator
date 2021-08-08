@@ -5,9 +5,14 @@
  */
 (async function () {
 
-  const settings = {
+  const settings = await browser.storage.local.get({
     target: 'en'
-  };
+  });
+  
+  const override = await browser.runtime.sendMessage({
+    topic: 'findOverride',
+    host: location.host
+  });
 
   /**
    * Deduplicates items with identical input strings by aggregating the items into a single item.
@@ -145,7 +150,9 @@
       let translation = await browser.runtime.sendMessage({
         topic: 'translate',
         target: null,
-        q: items.map(item => item.input)
+        q: items.map(item => item.input),
+        override,
+        manual: true
       });
 
       if (!translation.error) {
@@ -160,8 +167,6 @@
   // -------------------------------------------------------------------------------------------------------------------
   // Ready
 
-  let result = await browser.storage.local.get(settings);
-  settings.target = result.target;
   translateSelection();
 
 })();

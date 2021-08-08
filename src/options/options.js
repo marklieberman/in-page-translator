@@ -1,40 +1,54 @@
 'use strict';
 
+const cachePrefix = 'cache-';
+const defaultCacheName = `${cachePrefix}default`;
+const divToOverrideMap = new WeakMap();
 const divToProviderMap = new WeakMap();
 const quotas = {};
 
 const el = {
   optionsForm: document.getElementById('options-form'),
-  divBackendList: document.getElementById('backend-list'),
-  templateAzureBackend: document.getElementById('azure-backend-template'),
-  templateGoogleBackend: document.getElementById('google-backend-template'),
-  buttonAddAzureProvider: document.getElementById('add-azure-backend'),
-  buttonAddGoogleProvider: document.getElementById('add-google-backend'),
   inputTarget: document.getElementById('target'),
   inputCacheSize: document.getElementById('cache-size'),
-  inputDomains: document.getElementById('domains'),
+  buttonAddDomain: document.getElementById('add-domain'),
+  divOverridesList: document.getElementById('overrides-list'),
+  templateDomain: document.getElementById('override-template'),
+  buttonAddAzureProvider: document.getElementById('add-azure-backend'),
+  buttonAddGoogleProvider: document.getElementById('add-google-backend'),
+  divProvidersList: document.getElementById('providers-list'),
+  templateAzureBackend: document.getElementById('azure-backend-template'),
+  templateGoogleBackend: document.getElementById('google-backend-template'),  
   buttonFlushCache: document.getElementById('flush-cache')
 };
 
 // Restore the options from local stoage.
 browser.storage.local.get({
   target: 'en',
-  domains: [],
   cacheSize: 1000,
+  overrides: [],
   providers: [],
   quotas: {}
 }).then(results => {
   el.inputTarget.value = results.target;
-  el.inputDomains.value = results.domains.join('\n');
   el.inputCacheSize.value = results.cacheSize;
   Object.assign(quotas, results.quotas);  
+  if (results.overrides.length) {
+    results.overrides.forEach(override => createOverride(override));
+  }
   if (results.providers.length) {
-    el.divBackendList.innerText = '';
     results.providers.forEach(provider => createProvider(provider));
   }
 });
 
 // Bind event handlers to the form.
+el.buttonAddDomain.addEventListener('click', () => createOverride({
+  matchDomain: null,
+  matchRegex: false,
+  dedicatedCache: false,
+  dedicatedCacheName: `${cachePrefix}-${new Date().getTime()}`,
+  dedicatedCacheSize: 500,
+  cacheOnly: false
+}).scrollIntoView());
 el.buttonAddAzureProvider.addEventListener('click', () => createProvider({
   service: 'azure',
   enabled: true,
@@ -66,6 +80,66 @@ el.buttonFlushCache.addEventListener('click', async () => {
   alert('Flushed the cache.');
 });
 
+function createOverride (override) {
+  let template = document.importNode(el.templateDomain.content, true);
+  let tpl = {
+    divOverride: template.firstElementChild,
+    divMatchDomainGroup: template.querySelector('div.match-domain-group'),
+    inputMatchDomain: template.querySelector('[name="match-domain"]'),
+    inputMatchRegex: template.querySelector('[name="match-regex"]'),
+    divDedicatedCacheSizeGroup: template.querySelector('div.dedicated-cache-size-group'),
+    inputDedicatedCache: template.querySelector('[name="dedicated-cache"]'),
+    inputDedicatedCacheName: template.querySelector('[name="dedicated-cache-name"]'),
+    inputDedicatedCacheSize: template.querySelector('[name="dedicated-cache-size"]'),
+    inputCacheOnly: template.querySelector('[name="cache-only"]'),
+    buttonDelete: template.querySelector('button.delete'),
+    buttonFlushCache: template.querySelector('button.flush-cache')
+  };
+  tpl.inputMatchDomain.value = override.matchDomain;
+  tpl.inputMatchRegex.checked = override.matchRegex;
+  tpl.inputDedicatedCache.checked = override.dedicatedCache;
+  tpl.inputDedicatedCacheName.value = override.dedicatedCacheName;
+  tpl.inputDedicatedCacheSize.value = override.dedicatedCacheSize;
+  tpl.inputCacheOnly.checked = override.cacheOnly;
+  dedicatedCacheChanged();
+
+  // Bind event handlers to the overrides form.
+  tpl.inputDedicatedCache.addEventListener('change', () => dedicatedCacheChanged());
+  tpl.buttonDelete.addEventListener('click', () => tpl.divOverride.parentNode.removeChild(tpl.divOverride));
+  tpl.buttonFlushCache.addEventListener('click', async () => {
+    const data = {};
+    data[override.dedicatedCacheName] = [];
+    await browser.storage.local.set(data);
+    alert('Dedicated cache has been flushed');
+  });
+
+  function dedicatedCacheChanged () {
+    if (tpl.inputDedicatedCache.checked) {
+      tpl.divMatchDomainGroup.classList.add('col-md-8');
+      tpl.divMatchDomainGroup.classList.remove('col-md-12');
+      tpl.divDedicatedCacheSizeGroup.classList.remove('d-none');
+      tpl.buttonFlushCache.classList.remove('d-none');
+    } else {
+      tpl.divMatchDomainGroup.classList.add('col-md-12');
+      tpl.divMatchDomainGroup.classList.remove('col-md-8');
+      tpl.divDedicatedCacheSizeGroup.classList.add('d-none');
+      tpl.buttonFlushCache.classList.add('d-none');
+    }    
+  }
+  
+  el.divOverridesList.appendChild(template);
+  divToOverrideMap.set(tpl.divOverride, () => ({
+    matchDomain: tpl.inputMatchDomain.value,
+    matchRegex: tpl.inputMatchRegex.checked,
+    dedicatedCache: tpl.inputDedicatedCache.checked,
+    dedicatedCacheName: tpl.inputDedicatedCacheName.value,
+    dedicatedCacheSize: Number(tpl.inputDedicatedCacheSize.value),
+    cacheOnly: tpl.inputCacheOnly.checked
+  }));
+
+  return tpl.divOverride;
+}
+
 function createProvider (provider) {
   // Select a template for this provider.
   let templateElement = {
@@ -95,7 +169,7 @@ function createProvider (provider) {
     buttonMoveUp: template.querySelector('button.move-up'),
     buttonMoveDown: template.querySelector('button.move-down'),
     buttonDelete: template.querySelector('button.delete'),
-    buttonCacheReset: template.querySelector('button.cache-reset')
+    buttonResetQuota: template.querySelector('button.reset-quota')
   };
   tpl.inputEnabled.checked = provider.enabled;
   tpl.inputApiKey.value = provider.apiKey;
@@ -109,10 +183,33 @@ function createProvider (provider) {
   previewBadge();
 
   // Bind event handlers to the provider form.
-  tpl.buttonMoveUp.addEventListener('click', () => moveUpProvider(tpl.divProvider));
-  tpl.buttonMoveDown.addEventListener('click', () => moveDownProvider(tpl.divProvider));
-  tpl.buttonDelete.addEventListener('click', () => deleteProvider(tpl.divProvider));
-  tpl.buttonCacheReset.addEventListener('click', () => quotaResetProvider(tpl, provider.quotaKey));
+  tpl.buttonMoveUp.addEventListener('click', () => {
+    if (tpl.divProvider.previousElementSibling) {
+      tpl.divProvider.parentNode.insertBefore(tpl.divProvider, tpl.divProvider.previousElementSibling);
+    }
+  });
+  tpl.buttonMoveDown.addEventListener('click', () => {
+    if (tpl.divProvider.nextElementSibling) {
+      tpl.divProvider.parentNode.insertBefore(tpl.divProvider.nextElementSibling, tpl.divProvider);
+    }
+  });
+  tpl.buttonDelete.addEventListener('click', () => tpl.divProvider.parentNode.removeChild(tpl.divProvider));
+  tpl.buttonResetQuota.addEventListener('click', async () => {
+    let newQuota = Number.parseInt(prompt('Reset character quota to this amount:', 0));
+    if (Number.isFinite(newQuota) && (newQuota >= 0)) {
+      let data = await browser.storage.local.get({ quotas: {} });
+      data.quotas[provider.quotaKey] = {
+        month: new Date().getMonth(),
+        characters: newQuota
+      };
+      await browser.storage.local.set(data);
+      tpl.cellQuotaCharacters.innerText = newQuota;
+      browser.runtime.sendMessage({
+        topic: 'quotaEdited',
+        quotaKey: provider.quotaKey
+      });
+    }
+  });
   tpl.inputStopAfter.addEventListener('change', () => {
     tpl.inputWarnAfter.max = Number(tpl.inputStopAfter.value);
   });
@@ -126,7 +223,7 @@ function createProvider (provider) {
     tpl.spanBadgeWarning.style.backgroundColor = tpl.inputColor.value;
   }
 
-  el.divBackendList.appendChild(template);
+  el.divProvidersList.appendChild(template);
   divToProviderMap.set(tpl.divProvider, () => ({
     service: provider.service,
     enabled: tpl.inputEnabled.checked,
@@ -142,39 +239,6 @@ function createProvider (provider) {
   return tpl.divProvider;
 }
 
-function moveUpProvider (element) {
-  if (element.previousElementSibling) {
-    element.parentNode.insertBefore(element, element.previousElementSibling);
-  }
-}
-
-function moveDownProvider (element) {
-  if (element.nextElementSibling) {
-    element.parentNode.insertBefore(element.nextElementSibling, element);
-  }
-}
-
-function deleteProvider (element) {
-  element.parentNode.removeChild(element);
-}
-
-async function quotaResetProvider (tpl, quotaKey) {  
-  let newQuota = Number.parseInt(prompt('Reset character quota to this amount:', 0));
-  if (Number.isFinite(newQuota) && (newQuota >= 0)) {
-    let data = await browser.storage.local.get({ quotas: {} });
-    data.quotas[quotaKey] = {
-      month: new Date().getMonth(),
-      characters: newQuota
-    };
-    await browser.storage.local.set(data);
-    tpl.cellQuotaCharacters.innerText = newQuota;
-    browser.runtime.sendMessage({
-      topic: 'quotaEdited',
-      quotaKey
-    });
-  }
-}
-
 // Save the options to local storage.
 async function saveOptions (event) {
   event.preventDefault();
@@ -184,14 +248,58 @@ async function saveOptions (event) {
     return;
   }
 
-  let providers = [].slice.call(el.divBackendList.children)
+  let results = await browser.storage.local.get();
+
+  // Extract all named caches from settings.
+  results[defaultCacheName] = results[defaultCacheName] || [];
+  let cacheData = Object.keys(results)
+    .filter(key => key.startsWith(cachePrefix))
+    .reduce((data, key) => {
+      data[key] = results[key];
+      return data;
+    }, {});
+
+  let overrides = [].slice.call(el.divOverridesList.children)
+    .filter(element => element.tagName === 'DIV')
+    .map(divOverride => divToOverrideMap.get(divOverride)());
+
+  // Delete caches for any overrides that no longer exist.
+  Object.keys(cacheData)
+    // Find caches that no longer exist.
+    .filter(cacheName => cacheName !== defaultCacheName)
+    .filter(cacheName => {      
+      const override = overrides.find(override => override.dedicatedCacheName === cacheName);
+      return ((override == null) || !override.dedicatedCache);
+    })
+    // Delete the caches.
+    .forEach(cacheName => delete cacheData[cacheName]);
+
+  // Truncate the default cache to size.
+  const cacheSize = Number(el.inputCacheSize.value);
+  let cache = cacheData[defaultCacheName];
+  cache.length = Math.min(cache.length, cacheSize);
+  
+  // Truncate any dedicated caches that exceed their cache size.
+  overrides
+    .filter(override => override.dedicatedCache)
+    .forEach(override => {
+      let cache = cacheData[override.dedicatedCacheName];
+      if (cache) {
+        // Truncate the cache to size.
+        cache.length = Math.min(cache.length, override.dedicatedCacheSize);      
+      } else {
+        // Create a new cache.
+        cacheData[override.dedicatedCacheName] = [];
+      }
+    });
+
+  let providers = [].slice.call(el.divProvidersList.children)
     .filter(element => element.tagName === 'DIV')
     .map(divProvider => divToProviderMap.get(divProvider)());
 
   // Delete quotas for any providers that no longer exist.
   let validQuotaKeys = new Set();
   providers.forEach(provider => validQuotaKeys.add(provider.quotaKey));
-  let results = await browser.storage.local.get({ quotas: {} });
   Object.assign(quotas, results.quotas);
   Object.keys(quotas).forEach(quotaKey => {
     if (!validQuotaKeys.has(quotaKey)) {
@@ -199,16 +307,17 @@ async function saveOptions (event) {
     }
   });
 
+  // Save all settings.
   await browser.storage.local.set({
     target: el.inputTarget.value,
-    domains: el.inputDomains.value
-      .split('\n')
-      .map(domain => domain.trim())
-      .filter(domain => domain),
-    cacheSize: Number(el.inputCacheSize.value),
-    providers,
+    cacheSize,
+    overrides,
+    providers,    
     quotas
   });
+
+  // Save all caches.
+  await browser.storage.local.set(cacheData);
 
   alert('Settings have been saved');
 }
