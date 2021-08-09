@@ -74,10 +74,9 @@ el.buttonAddGoogleProvider.addEventListener('click', () => createProvider({
 }).scrollIntoView());
 el.optionsForm.addEventListener('submit', saveOptions);
 el.buttonFlushCache.addEventListener('click', async () => {
-  await browser.runtime.sendMessage({ 
-    topic: 'flushCache'
-  });
-
+  const data = {};
+  data[defaultCacheName] = [];
+  await browser.storage.local.set(data);
   alert('Flushed the cache.');
 });
 

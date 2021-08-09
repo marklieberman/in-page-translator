@@ -88,13 +88,6 @@ browser.runtime.onMessage.addListener(async (message) => {
       // Find any override for a host.
       return findOverride(new URL(message.url));
     }
-    case 'flushCache': {
-      // Delete the contents of the cache.
-      settings.cacheData = [];
-      return browser.storage.local.set({ 
-        cacheData: [] 
-      });
-    }
     case 'quotaEdited': {
       // Redraw the badge.
       let provider = settings.providers.find(provider => provider.quotaKey === message.quotaKey);
