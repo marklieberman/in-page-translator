@@ -90,17 +90,29 @@
             </div>
             <div id="providers-list"></div>
 
+            <hr>
+
             <!-- controls -->
             <div class="form-row">
-              <div class="form-group col-md-12">
-                <hr>
+              <div class="form-group col-md-6">                
+                <!-- save button-->
                 <button class="btn btn-primary" type="submit">
                   Save
                 </button>
-
+                <!-- flush cache button -->
                 <button class="btn btn-secondary" type="button" id="flush-cache">
                   Flush Cache
                 </button>
+              </div>
+              <!-- backup and restore buttons -->
+              <div class="form-group col-md-6 text-right">                
+                <button id="backup-settings" class="btn btn-secondary" type="button">
+                  Backup Settings
+                </button>
+                <label class="btn btn-secondary btn-file restore-settings">
+                  Restore Settings
+                  <input id="restore-settings" type="file" accepts="*.json"></input>
+                </label>
               </div>
             </div>
 

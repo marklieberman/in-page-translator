@@ -2,9 +2,9 @@
 
 const cachePrefix = 'cache-';
 const defaultCacheName = `${cachePrefix}default`;
-const divToOverrideMap = new WeakMap();
-const divToProviderMap = new WeakMap();
 const quotas = {};
+var divToOverrideMap = new WeakMap();
+var divToProviderMap = new WeakMap();
 
 const el = {
   optionsForm: document.getElementById('options-form'),
@@ -18,7 +18,9 @@ const el = {
   divProvidersList: document.getElementById('providers-list'),
   templateAzureBackend: document.getElementById('azure-backend-template'),
   templateGoogleBackend: document.getElementById('google-backend-template'),  
-  buttonFlushCache: document.getElementById('flush-cache')
+  buttonFlushCache: document.getElementById('flush-cache'),
+  buttonBackupSettings: document.getElementById('backup-settings'),
+  fileRestoreSettings: document.getElementById('restore-settings')
 };
 
 // Restore the options from local stoage.
@@ -28,17 +30,7 @@ browser.storage.local.get({
   overrides: [],
   providers: [],
   quotas: {}
-}).then(results => {
-  el.inputTarget.value = results.target;
-  el.inputCacheSize.value = results.cacheSize;
-  Object.assign(quotas, results.quotas);  
-  if (results.overrides.length) {
-    results.overrides.forEach(override => createOverride(override));
-  }
-  if (results.providers.length) {
-    results.providers.forEach(provider => createProvider(provider));
-  }
-});
+}).then(populateSettings);
 
 // Bind event handlers to the form.
 el.buttonAddDomain.addEventListener('click', () => createOverride({
@@ -46,7 +38,7 @@ el.buttonAddDomain.addEventListener('click', () => createOverride({
   matchWholeUrl: false,
   matchRegex: false,  
   dedicatedCache: false,
-  dedicatedCacheName: `${cachePrefix}-${new Date().getTime()}`,
+  dedicatedCacheName: `${cachePrefix}${new Date().getTime()}`,
   dedicatedCacheSize: 500,
   cacheOnly: false
 }).scrollIntoView());
@@ -79,6 +71,20 @@ el.buttonFlushCache.addEventListener('click', async () => {
   await browser.storage.local.set(data);
   alert('Flushed the cache.');
 });
+el.buttonBackupSettings.addEventListener('click', () => backupSettings());
+el.fileRestoreSettings.addEventListener('change', () => restoreSettings());
+
+function populateSettings (results) {
+  el.inputTarget.value = results.target;
+  el.inputCacheSize.value = results.cacheSize;
+  Object.assign(quotas, results.quotas);  
+  if (results.overrides.length) {
+    results.overrides.forEach(override => createOverride(override));
+  }
+  if (results.providers.length) {
+    results.providers.forEach(provider => createProvider(provider));
+  }
+}
 
 function createOverride (override) {
   let template = document.importNode(el.templateDomain.content, true);
@@ -358,4 +364,66 @@ async function saveOptions (event) {
   await browser.storage.local.set(cacheData);
 
   alert('Settings have been saved');
+}
+
+// Backup settings to a JSON file which is downloaded.
+async function backupSettings () {
+  // Get the settings to be backed up.
+  let backupSettings = await browser.storage.local.get({
+    target: 'en',
+    cacheSize: 1000,
+    overrides: [],
+    providers: [],
+    quotas: {}
+  });
+
+  // Wrap the settings in an envelope.
+  let backupData = {};
+  backupData.settings = backupSettings;
+  backupData.timestamp = new Date();
+  backupData.fileName = 'translator.' + [
+    String(backupData.timestamp.getFullYear()),
+    String(backupData.timestamp.getMonth() + 1).padStart(2, '0'),
+    String(backupData.timestamp.getDate()).padStart(2, '0')
+  ].join('-') + '.json';
+  // Record the current addon version.
+  let selfInfo = await browser.management.getSelf();
+  backupData.addonId = selfInfo.id;
+  backupData.version = selfInfo.version;
+
+  // Encode the backup as a JSON data URL.
+  let jsonData = JSON.stringify(backupData, null, 2);
+  let dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonData);
+
+  // Prompt the user to download the backup.
+  let a = window.document.createElement('a');
+  a.href = dataUrl;
+  a.download = backupData.fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// Restore settings froma JSON file which is uploaded.
+async function restoreSettings () {
+  let reader = new window.FileReader();
+  reader.onload = async () => {
+    try {
+      // Reset providers.
+      el.divProvidersList.innerText = '';
+      divToProviderMap = new WeakMap();
+      divToOverrideMap = new WeakMap();
+
+      // TODO Validate the backup version, etc.
+      let backupData = JSON.parse(reader.result);
+      populateSettings(backupData.settings);      
+      alert('Settings copied from backup; please Save now.');
+    } catch (error) {
+      alert(`Failed to restore: ${error}`);
+    }
+  };
+  reader.onerror = (error) => {
+    alert(`Failed to restore: ${error}`);
+  };
+  reader.readAsText(el.fileRestoreSettings.files[0]);
 }

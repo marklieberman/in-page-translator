@@ -1,6 +1,19 @@
 @import "../../node_modules/bootstrap/scss/functions";
 @import "../../node_modules/bootstrap/scss/variables";
 
+#options-form {
+    margin-top: 20px;
+    margin-bottom: 20px;
+
+    .restore-settings {
+        margin-bottom: 0;
+
+        input {
+            display: none;
+        }
+    }
+}
+
 #overrides-list {
     & > div {
         padding: 1rem;

@@ -2,9 +2,9 @@
 
   "manifest_version": 2,
   "name": "Translator",
-  "version": "1.2.0",
+  "version": "1.2.1",
 
-  "applications": {
+  "browser_specific_settings": {
     "gecko": {
       "id": "translator@liebs.ca",
       "strict_min_version": "88.0"
